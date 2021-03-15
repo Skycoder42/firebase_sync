@@ -26,3 +26,15 @@ scripts:
   pre-commit:run:
     run: dart pub global run melos exec -c1 -- dart pub run --no-sound-null-safety dart_pre_commit -p --ansi
     description: Run pre commit hooks in all projects
+
+  build:
+    run: dart pub global run melos exec -- dart run build_runner build
+    description: Run the build runner in all projects
+    select-package:
+      depends-on: build_runner
+
+  build:clean:
+    run: dart pub global run melos exec -- dart run build_runner build --delete-conflicting-outputs
+    description: Run the build runner in all projects, discarding the previous state
+    select-package:
+      depends-on: build_runner

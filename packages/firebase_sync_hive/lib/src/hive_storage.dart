@@ -4,7 +4,7 @@ import 'package:hive/hive.dart';
 
 import 'hive_storage_base.dart';
 
-class HiveStorage<T> extends HiveStorageBase<T> {
+class HiveStorage<T extends Object> extends HiveStorageBase<T> {
   HiveStorage({
     required Box<T> box,
     bool awaitBoxOperations = false,

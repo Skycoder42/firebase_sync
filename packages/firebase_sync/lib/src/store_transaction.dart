@@ -1,4 +1,4 @@
-abstract class StoreTransaction<T> {
+abstract class StoreTransaction<T extends Object> {
   const StoreTransaction._();
 
   String get key;
@@ -8,6 +8,4 @@ abstract class StoreTransaction<T> {
   Future<T?> commitUpdate(T data);
 
   Future<void> commitDelete();
-
-  void abort();
 }

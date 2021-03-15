@@ -1,19 +1,18 @@
 import 'package:firebase_database_rest/firebase_database_rest.dart';
 import 'package:meta/meta.dart';
 
-import '../storage.dart';
+import '../storage/storage.dart';
 import '../store_transaction.dart';
-import 'read_write_lock.dart';
 
 @internal
-class ReadOnlyStoreTransaction<T> implements StoreTransaction<T> {
+class ReadOnlyStoreTransaction<T extends Object>
+    implements StoreTransaction<T> {
   final Storage<T> storage;
   final FirebaseTransaction<T> storeTransaction;
-  final ReadWriteLock lock;
 
   bool _completed = false;
 
-  ReadOnlyStoreTransaction(this.storage, this.storeTransaction, this.lock);
+  ReadOnlyStoreTransaction(this.storage, this.storeTransaction);
 
   @override
   String get key => storeTransaction.key;
@@ -24,29 +23,15 @@ class ReadOnlyStoreTransaction<T> implements StoreTransaction<T> {
   @override
   Future<T?> commitUpdate(T data) async {
     _complete();
-    try {
-      await storeTransaction.commitUpdate(data);
-      await storage.writeEntry(key, data);
-    } finally {
-      lock.release();
-    }
+    await storeTransaction.commitUpdate(data);
+    await storage.writeEntry(key, data);
   }
 
   @override
   Future<void> commitDelete() async {
     _complete();
-    try {
-      await storeTransaction.commitDelete();
-      await storage.deleteEntry(key);
-    } finally {
-      lock.release();
-    }
-  }
-
-  @override
-  void abort() {
-    _complete();
-    lock.release();
+    await storeTransaction.commitDelete();
+    await storage.deleteEntry(key);
   }
 
   void _complete() {

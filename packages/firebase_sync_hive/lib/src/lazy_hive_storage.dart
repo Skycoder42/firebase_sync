@@ -4,7 +4,7 @@ import 'package:hive/hive.dart';
 
 import 'hive_storage_base.dart';
 
-class LazyHiveStorage<T> extends HiveStorageBase<T> {
+class LazyHiveStorage<T extends Object> extends HiveStorageBase<T> {
   LazyHiveStorage({
     required LazyBox<T> box,
     bool awaitBoxOperations = false,
