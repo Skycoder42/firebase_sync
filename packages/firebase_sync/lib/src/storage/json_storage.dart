@@ -88,9 +88,15 @@ class JsonStorage<T extends Object> implements Storage<T> {
   FutureOr<void> clear() => rawStorage.clear();
 
   @override
+  FutureOr<void> destroy() => rawStorage.destroy();
+
+  @override
   FutureOr<void> transaction(TransactionFn<T> transactionCallback) =>
       rawStorage.transaction((storage) => transactionCallback(JsonStorage(
             rawStorage: storage,
             jsonConverter: jsonConverter,
           )));
+
+  @override
+  Future<void> close() => rawStorage.close();
 }

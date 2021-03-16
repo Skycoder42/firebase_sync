@@ -1,82 +1,24 @@
 import 'dart:async';
 
 import 'package:firebase_database_rest/firebase_database_rest.dart';
+import 'package:meta/meta.dart';
 
-import '../local_store_event.dart';
-import '../storage/storage.dart';
-import '../store_transaction.dart';
-import '../utils/future_or_x.dart';
-import '../utils/read_only_store_transaction.dart';
-import 'local_read_store.dart';
-import 'local_read_store_sync.dart';
-import 'read_only_store_sync.dart';
+import '../../storage/storage.dart';
+import '../../store_transaction.dart';
+import '../read_store_remote.dart';
+import 'read_only_store_transaction.dart';
 
-enum ReloadStrategy {
-  clear,
-  compareKey,
-  compareValue,
-}
+@internal
+mixin RemoteMixin<T extends Object> implements ReadStoreRemote<T> {
+  ReloadStrategy get reloadStrategy;
 
-class ReadOnlyStore<T extends Object> implements LocalReadStore<T> {
-  final FirebaseStore<T> firebaseStore;
-  final Storage<T> storage;
+  @visibleForOverriding
+  Storage<T> get storage;
 
-  ReloadStrategy reloadStrategy = ReloadStrategy.compareKey;
-
-  ReadOnlyStore({
-    required this.firebaseStore,
-    required this.storage,
-  });
-
-  LocalReadStoreSync<T> syncReader() => ReadOnlyStoreSync<T>(storage);
-
-  // local
-  @override
-  Future<int> length() => storage.length().toFuture();
+  @visibleForOverriding
+  FirebaseStore<T> get firebaseStore;
 
   @override
-  Future<bool> isEmpty() {
-    final length = storage.length();
-    if (length is Future<int>) {
-      return length.then((value) => value == 0);
-    } else {
-      return Future.value(length == 0);
-    }
-  }
-
-  @override
-  Future<bool> isNotEmpty() {
-    final length = storage.length();
-    if (length is Future<int>) {
-      return length.then((value) => value != 0);
-    } else {
-      return Future.value(length != 0);
-    }
-  }
-
-  @override
-  Future<List<String>> keys() => storage.keys().toFuture();
-
-  @override
-  Future<Map<String, T>> asMap() => storage.entries().toFuture();
-
-  @override
-  Future<bool> contains(String key) => storage.contains(key).toFuture();
-
-  @override
-  Future<T?> value(String key) => storage.readEntry(key).toFuture();
-
-  @override
-  Future<Stream<LocalStoreEvent<T>>> watch() => storage.watch().toFuture();
-
-  @override
-  Future<Stream<T?>> watchEntry(String key) =>
-      storage.watchEntry(key).toFuture();
-
-  @override
-  Future<void> clear() => storage.clear().toFuture();
-
-  // remote
   Future<void> reload([Filter? filter]) async {
     final newEntries = await (filter != null
         ? firebaseStore.query(filter)
@@ -84,6 +26,7 @@ class ReadOnlyStore<T extends Object> implements LocalReadStore<T> {
     await _reset(newEntries);
   }
 
+  @override
   Future<StreamSubscription<void>> sync({
     Filter? filter,
     Function? onError,
@@ -101,6 +44,7 @@ class ReadOnlyStore<T extends Object> implements LocalReadStore<T> {
         );
   }
 
+  @override
   StreamSubscription<void> syncRenewed({
     FutureOr<Filter> Function()? onRenewFilter,
     Function? onError,
@@ -119,6 +63,7 @@ class ReadOnlyStore<T extends Object> implements LocalReadStore<T> {
             cancelOnError: cancelOnError,
           );
 
+  @override
   Future<T?> fetch(String key) async {
     final value = await firebaseStore.read(key);
     if (value != null) {
@@ -129,17 +74,20 @@ class ReadOnlyStore<T extends Object> implements LocalReadStore<T> {
     return value;
   }
 
+  @override
   Future<String> create(T value) async {
     final key = await firebaseStore.create(value);
     await storage.writeEntry(key, value);
     return key;
   }
 
+  @override
   Future<void> store(String key, T value) async {
     await firebaseStore.write(key, value, silent: true);
     await storage.writeEntry(key, value);
   }
 
+  @override
   Future<T?> patch(String key, Map<String, dynamic> updateFields) async {
     final value = await firebaseStore.update(
       key,
@@ -154,11 +102,19 @@ class ReadOnlyStore<T extends Object> implements LocalReadStore<T> {
     return value;
   }
 
+  @override
   Future<void> remove(String key) async {
     await firebaseStore.delete(key);
     await storage.deleteEntry(key);
   }
 
+  @override
+  Future<void> destroy(String key) async {
+    await firebaseStore.destroy();
+    await storage.destroy();
+  }
+
+  @override
   Future<StoreTransaction<T>> transaction(String key) async {
     final transaction = await firebaseStore.transaction(key);
     if (transaction.value != null) {

@@ -1,7 +1,7 @@
 import '../local_store_event.dart';
 
-abstract class LocalReadStore<T extends Object> {
-  const LocalReadStore._();
+abstract class ReadStoreLocalAsync<T extends Object> {
+  const ReadStoreLocalAsync._();
 
   Future<int> length();
 

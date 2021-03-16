@@ -15,17 +15,23 @@ abstract class HiveStorageBase<T extends Object> implements Storage<T> {
   });
 
   @override
-  Future<void> clear() async => _boxAwait(box.clear());
+  FutureOr<void> clear() => _boxAwait(box.clear());
+
+  @override
+  Future<void> close() => box.close();
 
   @override
   FutureOr<bool> contains(String key) => box.containsKey(key);
 
   @override
-  Future<void> deleteEntries(Iterable<String> keys) async =>
+  FutureOr<void> deleteEntries(Iterable<String> keys) =>
       _boxAwait(box.deleteAll(keys));
 
   @override
-  Future<void> deleteEntry(String key) async => _boxAwait(box.delete(key));
+  FutureOr<void> deleteEntry(String key) => _boxAwait(box.delete(key));
+
+  @override
+  FutureOr<void> destroy() => _boxAwait(box.deleteFromDisk());
 
   @override
   FutureOr<List<String>> keys() =>
@@ -50,15 +56,15 @@ abstract class HiveStorageBase<T extends Object> implements Storage<T> {
       .map((event) => event.value as T?);
 
   @override
-  Future<void> writeEntries(Map<String, T> entries) async =>
+  FutureOr<void> writeEntries(Map<String, T> entries) =>
       _boxAwait(box.putAll(entries));
 
   @override
-  Future<void> writeEntry(String key, T value) async =>
+  FutureOr<void> writeEntry(String key, T value) =>
       _boxAwait(box.put(key, value));
 
   @override
-  Future<void> transaction(TransactionFn<T> transaction) async =>
+  FutureOr<void> transaction(TransactionFn<T> transaction) =>
       HiveTransaction(this).call(transaction);
 
   FutureOr<void> _boxAwait(Future<dynamic> future) {

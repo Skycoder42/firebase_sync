@@ -1,7 +1,8 @@
+import '../../firebase_sync.dart';
 import '../local_store_event.dart';
 
-abstract class LocalReadStoreSync<T extends Object> {
-  const LocalReadStoreSync._();
+abstract class ReadStoreLocalSync<T extends Object> {
+  const ReadStoreLocalSync._();
 
   int get length;
 
@@ -22,4 +23,6 @@ abstract class LocalReadStoreSync<T extends Object> {
   Stream<T?> watchEntry(String key);
 
   T? operator [](String key);
+
+  void clear();
 }

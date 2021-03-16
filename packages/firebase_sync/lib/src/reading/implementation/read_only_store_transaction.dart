@@ -1,8 +1,8 @@
 import 'package:firebase_database_rest/firebase_database_rest.dart';
 import 'package:meta/meta.dart';
 
-import '../storage/storage.dart';
-import '../store_transaction.dart';
+import '../../storage/storage.dart';
+import '../../store_transaction.dart';
 
 @internal
 class ReadOnlyStoreTransaction<T extends Object>

@@ -1,12 +1,12 @@
 import 'package:firebase_database_rest/firebase_database_rest.dart';
 
 import '../storage/storage.dart';
-import 'implementation/local_sync_mixin.dart';
+import 'implementation/local_async_mixing.dart';
 import 'implementation/remote_mixin.dart';
 import 'read_store_remote.dart';
 
-class ReadOnlyStoreSync<T extends Object>
-    with LocalSyncMixin<T>, RemoteMixin<T> {
+class ReadOnlyStoreAsync<T extends Object>
+    with LocalAsyncMixinBase<T>, LocalAsyncMixin<T>, RemoteMixin<T> {
   @override
   final FirebaseStore<T> firebaseStore;
 
@@ -16,11 +16,8 @@ class ReadOnlyStoreSync<T extends Object>
   @override
   ReloadStrategy reloadStrategy = ReloadStrategy.compareKey;
 
-  ReadOnlyStoreSync({
+  ReadOnlyStoreAsync({
     required this.firebaseStore,
     required this.storage,
-  }) : assert(
-          storage.isSync,
-          'you can only use $ReadOnlyStoreSync with synchronous storages',
-        );
+  });
 }

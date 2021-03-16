@@ -35,5 +35,9 @@ abstract class Storage<T extends Object> {
 
   FutureOr<void> clear();
 
+  FutureOr<void> destroy();
+
   FutureOr<void> transaction(TransactionFn<T> transactionCallback);
+
+  Future<void> close();
 }

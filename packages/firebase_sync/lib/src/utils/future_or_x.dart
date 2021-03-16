@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:meta/meta.dart';
 
+typedef ThenFn<T, TR> = FutureOr<TR> Function(T value);
+
 @internal
 extension FutureOrX<T> on FutureOr<T> {
   Future<T> toFuture() {
@@ -12,7 +14,7 @@ extension FutureOrX<T> on FutureOr<T> {
     }
   }
 
-  FutureOr<TR> then<TR>(FutureOr<TR> Function(T) next) {
+  FutureOr<TR> then<TR>(ThenFn<T, TR> next) {
     if (this is Future<T>) {
       return (this as Future<T>).then(next);
     } else {

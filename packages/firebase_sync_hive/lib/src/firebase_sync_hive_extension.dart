@@ -4,19 +4,36 @@ import 'package:hive/hive.dart';
 
 import 'hive_storage.dart';
 import 'lazy_hive_storage.dart';
+import 'write_storage_entry_type_adapter.dart';
 
 extension FirebaseSyncHiveExtension on HiveInterface {
   static final _rawStorages = Expando<List<Type>>('FirebaseSyncHiveExtension');
 
-  void registerRawStorage<T>({
+  void _addRawType<T>() {
+    _rawStorages[this] ??= [];
+    _rawStorages[this]!.add(T);
+  }
+
+  void registerRawStorage<T extends Object>({
     TypeAdapter<T>? adapter,
+    bool writable = true,
     bool internal = false,
     bool override = false,
   }) {
-    _rawStorages[this] ??= [];
-    _rawStorages[this]!.add(T);
+    _addRawType<T>();
+    if (writable) {
+      _addRawType<WriteStorageEntry<T>>();
+    }
+
     if (adapter != null) {
       registerAdapter(adapter, internal: internal, override: override);
+      if (writable) {
+        registerAdapter(
+          WriteStorageEntryTypeAdapter.wrap(adapter),
+          internal: internal,
+          override: override,
+        );
+      }
     }
   }
 
