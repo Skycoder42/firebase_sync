@@ -4,7 +4,6 @@ import 'package:firebase_database_rest/firebase_database_rest.dart';
 import 'package:meta/meta.dart';
 
 import '../../storage/storage.dart';
-import '../../store_transaction.dart';
 import '../read_store_remote.dart';
 import 'read_only_store_transaction.dart';
 
@@ -115,7 +114,7 @@ mixin RemoteMixin<T extends Object> implements ReadStoreRemote<T> {
   }
 
   @override
-  Future<StoreTransaction<T>> transaction(String key) async {
+  Future<FirebaseTransaction<T>> transaction(String key) async {
     final transaction = await firebaseStore.transaction(key);
     if (transaction.value != null) {
       await storage.writeEntry(key, transaction.value!);

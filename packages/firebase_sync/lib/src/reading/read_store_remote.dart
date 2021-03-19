@@ -2,8 +2,6 @@ import 'dart:async';
 
 import 'package:firebase_database_rest/firebase_database_rest.dart';
 
-import '../store_transaction.dart';
-
 enum ReloadStrategy {
   clear,
   compareKey,
@@ -41,5 +39,5 @@ abstract class ReadStoreRemote<T extends Object> {
 
   Future<void> destroy(String key);
 
-  Future<StoreTransaction<T>> transaction(String key);
+  Future<FirebaseTransaction<T>> transaction(String key);
 }

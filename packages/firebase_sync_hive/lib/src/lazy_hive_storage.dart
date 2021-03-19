@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:firebase_sync/firebase_sync.dart';
 import 'package:hive/hive.dart';
 
 import 'hive_storage_base.dart';
+import 'hive_transaction.dart';
 
 class LazyHiveStorage<T extends Object> extends HiveStorageBase<T> {
   LazyHiveStorage({
@@ -34,4 +36,8 @@ class LazyHiveStorage<T extends Object> extends HiveStorageBase<T> {
 
   @override
   FutureOr<T?> readEntry(String key) => box.get(key);
+
+  @override
+  FutureOr<TR> transaction<TR>(TransactionFn<T, TR> transaction) =>
+      HiveTransaction(this).call(transaction);
 }

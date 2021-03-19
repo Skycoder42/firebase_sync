@@ -22,7 +22,7 @@ class JsonStorage<T extends Object> implements Storage<T> {
   FutureOr<int> length() => rawStorage.length();
 
   @override
-  FutureOr<List<String>> keys() => rawStorage.keys();
+  FutureOr<Iterable<String>> keys() => rawStorage.keys();
 
   @override
   FutureOr<Map<String, T>> entries() =>
@@ -43,26 +43,21 @@ class JsonStorage<T extends Object> implements Storage<T> {
       );
 
   @override
-  FutureOr<Stream<LocalStoreEvent<T>>> watch() => rawStorage.watch().then(
-        (stream) => stream.map(
-          (event) => event.when(
-            update: (key, dynamic value) => LocalStoreEvent.update(
-              key,
-              jsonConverter.dataFromJson(value),
-            ),
-            delete: (key) => LocalStoreEvent.delete(key),
+  Stream<LocalStoreEvent<T>> watch() => rawStorage.watch().map(
+        (event) => event.when(
+          update: (key, dynamic value) => LocalStoreEvent.update(
+            key,
+            jsonConverter.dataFromJson(value),
           ),
+          delete: (key) => LocalStoreEvent.delete(key),
         ),
       );
 
   @override
-  FutureOr<Stream<T?>> watchEntry(String key) =>
-      rawStorage.watchEntry(key).then(
-            (stream) => stream.map(
-              (dynamic value) =>
-                  value != null ? jsonConverter.dataFromJson(value) : null,
-            ),
-          );
+  Stream<T?> watchEntry(String key) => rawStorage.watchEntry(key).map(
+        (dynamic value) =>
+            value != null ? jsonConverter.dataFromJson(value) : null,
+      );
 
   @override
   FutureOr<void> writeEntry(String key, T value) =>
@@ -91,7 +86,7 @@ class JsonStorage<T extends Object> implements Storage<T> {
   FutureOr<void> destroy() => rawStorage.destroy();
 
   @override
-  FutureOr<void> transaction(TransactionFn<T> transactionCallback) =>
+  FutureOr<TR> transaction<TR>(TransactionFn<T, TR> transactionCallback) =>
       rawStorage.transaction((storage) => transactionCallback(JsonStorage(
             rawStorage: storage,
             jsonConverter: jsonConverter,

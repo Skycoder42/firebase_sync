@@ -12,7 +12,7 @@ class HiveTransaction<T extends Object> {
 
   const HiveTransaction(this.storage);
 
-  Future<void> call(TransactionFn<T> transaction) {
+  Future<TR> call<TR>(TransactionFn<T, TR> transaction) {
     _locks[storage.box] ??= Lock(reentrant: true);
     return _locks[storage.box]!.synchronized(() => transaction(storage));
   }

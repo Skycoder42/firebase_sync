@@ -2,11 +2,10 @@ import 'package:firebase_database_rest/firebase_database_rest.dart';
 import 'package:meta/meta.dart';
 
 import '../../storage/storage.dart';
-import '../../store_transaction.dart';
 
 @internal
 class ReadOnlyStoreTransaction<T extends Object>
-    implements StoreTransaction<T> {
+    implements FirebaseTransaction<T> {
   final Storage<T> storage;
   final FirebaseTransaction<T> storeTransaction;
 
@@ -19,6 +18,9 @@ class ReadOnlyStoreTransaction<T extends Object>
 
   @override
   T? get value => storeTransaction.value;
+
+  @override
+  String get eTag => storeTransaction.eTag;
 
   @override
   Future<T?> commitUpdate(T data) async {

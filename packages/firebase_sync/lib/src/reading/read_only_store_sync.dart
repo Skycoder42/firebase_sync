@@ -6,7 +6,7 @@ import 'implementation/remote_mixin.dart';
 import 'read_store_remote.dart';
 
 class ReadOnlyStoreSync<T extends Object>
-    with LocalSyncMixin<T>, RemoteMixin<T> {
+    with LocalSyncMixinBase<T>, LocalSyncMixin<T>, RemoteMixin<T> {
   @override
   final FirebaseStore<T> firebaseStore;
 

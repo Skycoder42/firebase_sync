@@ -6,7 +6,7 @@ import 'hive_storage.dart';
 import 'lazy_hive_storage.dart';
 import 'write_storage_entry_type_adapter.dart';
 
-extension FirebaseSyncHiveExtension on HiveInterface {
+extension HiveStorageExtension on HiveInterface {
   static final _rawStorages = Expando<List<Type>>('FirebaseSyncHiveExtension');
 
   void _addRawType<T>() {

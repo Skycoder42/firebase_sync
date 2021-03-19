@@ -2,7 +2,7 @@ import 'dart:async';
 
 import '../local_store_event.dart';
 
-typedef TransactionFn<T extends Object> = FutureOr<void> Function(
+typedef TransactionFn<T extends Object, TR> = FutureOr<TR> Function(
   Storage<T> storage,
 );
 
@@ -13,7 +13,7 @@ abstract class Storage<T extends Object> {
 
   FutureOr<int> length();
 
-  FutureOr<List<String>> keys();
+  FutureOr<Iterable<String>> keys();
 
   FutureOr<Map<String, T>> entries();
 
@@ -21,9 +21,9 @@ abstract class Storage<T extends Object> {
 
   FutureOr<T?> readEntry(String key);
 
-  FutureOr<Stream<LocalStoreEvent<T>>> watch();
+  Stream<LocalStoreEvent<T>> watch();
 
-  FutureOr<Stream<T?>> watchEntry(String key);
+  Stream<T?> watchEntry(String key);
 
   FutureOr<void> writeEntry(String key, T value);
 
@@ -37,7 +37,7 @@ abstract class Storage<T extends Object> {
 
   FutureOr<void> destroy();
 
-  FutureOr<void> transaction(TransactionFn<T> transactionCallback);
+  FutureOr<TR> transaction<TR>(TransactionFn<T, TR> transactionCallback);
 
   Future<void> close();
 }

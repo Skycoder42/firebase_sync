@@ -10,7 +10,7 @@ abstract class ReadStoreLocalSync<T extends Object> {
 
   bool get isNotEmpty;
 
-  List<String> get keys;
+  Iterable<String> get keys;
 
   Map<String, T> asMap();
 

@@ -5,10 +5,9 @@ import '../../storage/storage.dart';
 import '../../utils/future_or_x.dart';
 import '../read_store_local_sync.dart';
 
-@internal
-mixin LocalSyncMixin<T extends Object> implements ReadStoreLocalSync<T> {
+mixin LocalSyncMixinBase<T extends Object> implements ReadStoreLocalSync<T> {
   @visibleForOverriding
-  Storage<T> get storage;
+  Storage<dynamic> get storage;
 
   @override
   int get length => storage.length().sync;
@@ -20,13 +19,23 @@ mixin LocalSyncMixin<T extends Object> implements ReadStoreLocalSync<T> {
   bool get isNotEmpty => length != 0;
 
   @override
-  List<String> get keys => storage.keys().sync;
-
-  @override
-  Map<String, T> asMap() => storage.entries().sync;
+  Iterable<String> get keys => storage.keys().sync;
 
   @override
   bool contains(String key) => storage.contains(key).sync;
+
+  @override
+  void clear() => storage.clear().sync;
+}
+
+@internal
+mixin LocalSyncMixin<T extends Object> on LocalSyncMixinBase<T> {
+  @override
+  @visibleForOverriding
+  Storage<T> get storage;
+
+  @override
+  Map<String, T> asMap() => storage.entries().sync;
 
   @override
   T? value(String key) => storage.readEntry(key).sync;
@@ -39,7 +48,4 @@ mixin LocalSyncMixin<T extends Object> implements ReadStoreLocalSync<T> {
 
   @override
   T? operator [](String key) => storage.readEntry(key).sync;
-
-  @override
-  void clear() => storage.clear().sync;
 }

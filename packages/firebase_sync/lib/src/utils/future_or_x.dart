@@ -30,3 +30,24 @@ extension FutureOrX<T> on FutureOr<T> {
     return this as T;
   }
 }
+
+extension FutureOrIterableX<T> on FutureOr<Iterable<T>> {
+  FutureOr<Iterable<TR>> forEach<TR>(ThenFn<T, TR> next) => then((oldValues) {
+        var needsAwait = false;
+        final newValues = oldValues.map((oldValue) {
+          final newValue = next(oldValue);
+          if (!needsAwait && newValue is Future<TR>) {
+            needsAwait = true;
+          }
+          return newValue;
+        });
+        if (needsAwait) {
+          return Future.wait(
+            newValues.map((e) => e.toFuture()),
+            eagerError: true,
+          );
+        } else {
+          return newValues.map((e) => e.sync);
+        }
+      });
+}

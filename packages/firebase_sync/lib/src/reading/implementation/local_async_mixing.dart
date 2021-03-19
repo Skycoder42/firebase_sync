@@ -34,7 +34,7 @@ mixin LocalAsyncMixinBase<T extends Object> implements ReadStoreLocalAsync<T> {
   }
 
   @override
-  Future<List<String>> keys() => storage.keys().toFuture();
+  Future<Iterable<String>> keys() => storage.keys().toFuture();
 
   @override
   Future<bool> contains(String key) => storage.contains(key).toFuture();

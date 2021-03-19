@@ -9,7 +9,7 @@ abstract class ReadStoreLocalAsync<T extends Object> {
 
   Future<bool> isNotEmpty();
 
-  Future<List<String>> keys();
+  Future<Iterable<String>> keys();
 
   Future<Map<String, T>> asMap();
 

@@ -3,8 +3,6 @@ import 'dart:async';
 import 'package:firebase_sync/firebase_sync.dart';
 import 'package:hive/hive.dart';
 
-import 'hive_transaction.dart';
-
 abstract class HiveStorageBase<T extends Object> implements Storage<T> {
   final BoxBase<T> box;
   final bool awaitBoxOperations;
@@ -34,14 +32,13 @@ abstract class HiveStorageBase<T extends Object> implements Storage<T> {
   FutureOr<void> destroy() => _boxAwait(box.deleteFromDisk());
 
   @override
-  FutureOr<List<String>> keys() =>
-      box.keys.cast<String>().toList(growable: false);
+  FutureOr<Iterable<String>> keys() => box.keys.cast<String>();
 
   @override
   FutureOr<int> length() => box.length;
 
   @override
-  FutureOr<Stream<LocalStoreEvent<T>>> watch() => box.watch().map((event) {
+  Stream<LocalStoreEvent<T>> watch() => box.watch().map((event) {
         if (event.deleted) {
           return LocalStoreEvent.delete(event.key as String);
         } else {
@@ -50,7 +47,7 @@ abstract class HiveStorageBase<T extends Object> implements Storage<T> {
       });
 
   @override
-  FutureOr<Stream<T?>> watchEntry(String key) => box
+  Stream<T?> watchEntry(String key) => box
       .watch(key: key)
       .where((event) => event.key == key)
       .map((event) => event.value as T?);
@@ -62,10 +59,6 @@ abstract class HiveStorageBase<T extends Object> implements Storage<T> {
   @override
   FutureOr<void> writeEntry(String key, T value) =>
       _boxAwait(box.put(key, value));
-
-  @override
-  FutureOr<void> transaction(TransactionFn<T> transaction) =>
-      HiveTransaction(this).call(transaction);
 
   FutureOr<void> _boxAwait(Future<dynamic> future) {
     if (awaitBoxOperations) {

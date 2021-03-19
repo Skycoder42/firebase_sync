@@ -21,7 +21,11 @@ scripts:
 
   upgrade:
     run: dart pub global run melos exec -- dart pub upgrade
-    description: Run 'pub get' in all projects
+    description: Run 'pub upgrade' in all projects
+
+  outdated:
+    run: dart pub global run melos exec -- dart pub outdated
+    description: Run 'pub outdated' in all projects
 
   pre-commit:init:
     run: bash -c "echo -e '#!/bin/sh\nexec dart pub global run melos run pre-commit:run' > .git/hooks/pre-commit && chmod a+x .git/hooks/pre-commit"
