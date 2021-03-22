@@ -1,4 +1,4 @@
-import '../local_store_event.dart';
+import '../storage/local_store_event.dart';
 
 abstract class ReadStoreLocalAsync<T extends Object> {
   const ReadStoreLocalAsync._();

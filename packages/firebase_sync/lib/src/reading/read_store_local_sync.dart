@@ -1,5 +1,4 @@
-import '../../firebase_sync.dart';
-import '../local_store_event.dart';
+import '../storage/local_store_event.dart';
 
 abstract class ReadStoreLocalSync<T extends Object> {
   const ReadStoreLocalSync._();

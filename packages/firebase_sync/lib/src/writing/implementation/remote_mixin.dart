@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:firebase_database_rest/firebase_database_rest.dart';
 import 'package:meta/meta.dart';
 
-import '../../local_store_event.dart';
+import '../../storage/local_store_event.dart';
 import '../../storage/write_storage_entry.dart';
 import '../../utils/future_or_x.dart';
 import '../conflict_resolution.dart';

@@ -1,7 +1,7 @@
 import 'package:meta/meta.dart';
 
-import '../../local_store_event.dart';
 import '../../reading/implementation/local_sync_mixin.dart';
+import '../../storage/local_store_event.dart';
 import '../../storage/storage.dart';
 import '../../storage/write_storage_entry.dart';
 import '../../utils/future_or_x.dart';

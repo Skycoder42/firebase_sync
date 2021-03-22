@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:firebase_database_rest/firebase_database_rest.dart';
 
-import '../local_store_event.dart';
 import '../utils/future_or_x.dart';
+import 'local_store_event.dart';
 import 'storage.dart';
 
 class JsonStorage<T extends Object> implements Storage<T> {

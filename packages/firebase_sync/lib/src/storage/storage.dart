@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import '../local_store_event.dart';
+import 'local_store_event.dart';
 
 typedef TransactionFn<T extends Object, TR> = FutureOr<TR> Function(
   Storage<T> storage,

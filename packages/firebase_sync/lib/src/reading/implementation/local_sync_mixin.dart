@@ -1,6 +1,6 @@
 import 'package:meta/meta.dart';
 
-import '../../local_store_event.dart';
+import '../../storage/local_store_event.dart';
 import '../../storage/storage.dart';
 import '../../utils/future_or_x.dart';
 import '../read_store_local_sync.dart';
