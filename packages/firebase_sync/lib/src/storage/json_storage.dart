@@ -7,7 +7,7 @@ import 'local_store_event.dart';
 import 'storage.dart';
 
 class JsonStorage<T extends Object> implements Storage<T> {
-  final Storage<dynamic> rawStorage;
+  final Storage<Object> rawStorage;
   final JsonConverter<T> jsonConverter;
 
   const JsonStorage({
@@ -61,14 +61,14 @@ class JsonStorage<T extends Object> implements Storage<T> {
 
   @override
   FutureOr<void> writeEntry(String key, T value) =>
-      rawStorage.writeEntry(key, jsonConverter.dataToJson(value));
+      rawStorage.writeEntry(key, jsonConverter.dataToJson(value) as Object);
 
   @override
   FutureOr<void> writeEntries(Map<String, T> entries) =>
-      rawStorage.writeEntries(entries.map<String, dynamic>(
-        (key, value) => MapEntry<String, dynamic>(
+      rawStorage.writeEntries(entries.map<String, Object>(
+        (key, value) => MapEntry(
           key,
-          jsonConverter.dataToJson(value),
+          jsonConverter.dataToJson(value) as Object,
         ),
       ));
 
@@ -87,10 +87,14 @@ class JsonStorage<T extends Object> implements Storage<T> {
 
   @override
   FutureOr<TR> transaction<TR>(TransactionFn<T, TR> transactionCallback) =>
-      rawStorage.transaction((storage) => transactionCallback(JsonStorage(
+      rawStorage.transaction(
+        (storage) => transactionCallback(
+          JsonStorage(
             rawStorage: storage,
             jsonConverter: jsonConverter,
-          )));
+          ),
+        ),
+      );
 
   @override
   Future<void> close() => rawStorage.close();

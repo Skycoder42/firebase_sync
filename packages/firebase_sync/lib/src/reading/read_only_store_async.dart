@@ -20,4 +20,7 @@ class ReadOnlyStoreAsync<T extends Object>
     required this.firebaseStore,
     required this.storage,
   });
+
+  @override
+  void onInvalidPath(String path) {}
 }

@@ -46,7 +46,6 @@ mixin LocalAsyncMixinBase<T extends Object> implements ReadStoreLocalAsync<T> {
 @internal
 mixin LocalAsyncMixin<T extends Object> on LocalAsyncMixinBase<T> {
   @override
-  @visibleForOverriding
   Storage<T> get storage;
 
   @override
@@ -56,9 +55,8 @@ mixin LocalAsyncMixin<T extends Object> on LocalAsyncMixinBase<T> {
   Future<T?> value(String key) => storage.readEntry(key).toFuture();
 
   @override
-  Future<Stream<LocalStoreEvent<T>>> watch() => storage.watch().toFuture();
+  Stream<LocalStoreEvent<T>> watch() => storage.watch();
 
   @override
-  Future<Stream<T?>> watchEntry(String key) =>
-      storage.watchEntry(key).toFuture();
+  Stream<T?> watchEntry(String key) => storage.watchEntry(key);
 }

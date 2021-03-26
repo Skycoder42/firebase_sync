@@ -31,7 +31,6 @@ mixin LocalSyncMixinBase<T extends Object> implements ReadStoreLocalSync<T> {
 @internal
 mixin LocalSyncMixin<T extends Object> on LocalSyncMixinBase<T> {
   @override
-  @visibleForOverriding
   Storage<T> get storage;
 
   @override

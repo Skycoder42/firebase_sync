@@ -1,7 +1,7 @@
 import '../storage/local_store_event.dart';
 
 abstract class ReadStoreLocalSync<T extends Object> {
-  const ReadStoreLocalSync._();
+  const ReadStoreLocalSync._(); // coverage:ignore-line
 
   int get length;
 

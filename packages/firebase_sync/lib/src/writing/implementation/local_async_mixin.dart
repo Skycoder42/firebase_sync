@@ -34,25 +34,18 @@ mixin LocalAsyncMixin<T extends Object> on LocalAsyncMixinBase<T>
       storage.readEntry(key).then((value) => value?.value).toFuture();
 
   @override
-  Future<Stream<LocalStoreEvent<T>>> watch() => storage
-      .watch()
-      .then(
-        (stream) => stream.map(
-          (event) => event.when<LocalStoreEvent<T>>(
-            update: (key, value) => value.value != null
-                ? LocalStoreEvent.update(key, value.value!)
-                : LocalStoreEvent.delete(key),
-            delete: (key) => LocalStoreEvent.delete(key),
-          ),
+  Stream<LocalStoreEvent<T>> watch() => storage.watch().map(
+        (event) => event.when<LocalStoreEvent<T>>(
+          update: (key, value) => value.value != null
+              ? LocalStoreEvent.update(key, value.value!)
+              : LocalStoreEvent.delete(key),
+          delete: (key) => LocalStoreEvent.delete(key),
         ),
-      )
-      .toFuture();
+      );
 
   @override
-  Future<Stream<T?>> watchEntry(String key) => storage
-      .watchEntry(key)
-      .then((stream) => stream.map((entry) => entry?.value))
-      .toFuture();
+  Stream<T?> watchEntry(String key) =>
+      storage.watchEntry(key).map((entry) => entry?.value);
 
   @override
   Future<void> setValue(String key, T value) => storage

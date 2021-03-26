@@ -23,3 +23,9 @@ doc/api/
 # idea files
 .idea
 *.iml
+
+# coverage
+coverage
+
+# Test stuff
+packages/*/test/**/*.freezed.dart

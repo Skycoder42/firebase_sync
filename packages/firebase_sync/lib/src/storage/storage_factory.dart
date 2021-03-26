@@ -7,12 +7,27 @@ part 'storage_factory.freezed.dart';
 
 @freezed
 class ExtraArgInfo with _$ExtraArgInfo {
+  const ExtraArgInfo._();
+
+  // ignore: sort_unnamed_constructors_first
   const factory ExtraArgInfo({
     required String name,
     required Type type,
     @Default(null) dynamic defaultValue,
     String? description,
   }) = _ExtraArgInfo;
+
+  static ExtraArgInfo create<T>({
+    required String name,
+    required T defaultValue,
+    String? description,
+  }) =>
+      ExtraArgInfo(
+        name: name,
+        type: T,
+        defaultValue: defaultValue,
+        description: description,
+      );
 
   T extractArg<T>(Map<String, dynamic> args) {
     assert(T == type, 'Can only extract type');
@@ -21,6 +36,8 @@ class ExtraArgInfo with _$ExtraArgInfo {
 }
 
 abstract class StorageFactory {
+  const StorageFactory._(); // coverage:ignore-line
+
   bool get canCreateSyncStore;
 
   Iterable<ExtraArgInfo> get extraArgs;

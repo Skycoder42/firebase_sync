@@ -1,7 +1,7 @@
 import '../storage/local_store_event.dart';
 
 abstract class ReadStoreLocalAsync<T extends Object> {
-  const ReadStoreLocalAsync._();
+  const ReadStoreLocalAsync._(); // coverage:ignore-line
 
   Future<int> length();
 
@@ -17,9 +17,9 @@ abstract class ReadStoreLocalAsync<T extends Object> {
 
   Future<T?> value(String key);
 
-  Future<Stream<LocalStoreEvent<T>>> watch();
+  Stream<LocalStoreEvent<T>> watch();
 
-  Future<Stream<T?>> watchEntry(String key);
+  Stream<T?> watchEntry(String key);
 
   Future<void> clear();
 }

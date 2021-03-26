@@ -25,7 +25,7 @@ extension FutureOrX<T> on FutureOr<T> {
   T get sync {
     assert(
       this is T,
-      'Cannot use FutureOrX.sync with asynchronous storages',
+      'Cannot use FutureOrX.sync on Future<T>, only on T',
     );
     return this as T;
   }
@@ -40,7 +40,7 @@ extension FutureOrIterableX<T> on FutureOr<Iterable<T>> {
             needsAwait = true;
           }
           return newValue;
-        });
+        }).toList();
         if (needsAwait) {
           return Future.wait(
             newValues.map((e) => e.toFuture()),

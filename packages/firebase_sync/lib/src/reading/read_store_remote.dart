@@ -9,12 +9,13 @@ enum ReloadStrategy {
 }
 
 abstract class ReadStoreRemote<T extends Object> {
-  const ReadStoreRemote._();
+  const ReadStoreRemote._(); // coverage:ignore-line
 
   Future<void> reload([Filter? filter]);
 
   Future<StreamSubscription<void>> sync({
     Filter? filter,
+    void Function()? onUpdate,
     Function? onError,
     void Function()? onDone,
     bool cancelOnError = false,
@@ -22,6 +23,7 @@ abstract class ReadStoreRemote<T extends Object> {
 
   StreamSubscription<void> syncRenewed({
     FutureOr<Filter> Function()? onRenewFilter,
+    void Function()? onUpdate,
     Function? onError,
     void Function()? onDone,
     bool cancelOnError = false,

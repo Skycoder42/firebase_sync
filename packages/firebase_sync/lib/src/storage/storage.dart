@@ -7,7 +7,7 @@ typedef TransactionFn<T extends Object, TR> = FutureOr<TR> Function(
 );
 
 abstract class Storage<T extends Object> {
-  const Storage._();
+  const Storage._(); // coverage:ignore-line
 
   bool get isSync;
 

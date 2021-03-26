@@ -23,4 +23,7 @@ class ReadOnlyStoreSync<T extends Object>
           storage.isSync,
           'you can only use $ReadOnlyStoreSync with synchronous storages',
         );
+
+  @override
+  void onInvalidPath(String path) {}
 }

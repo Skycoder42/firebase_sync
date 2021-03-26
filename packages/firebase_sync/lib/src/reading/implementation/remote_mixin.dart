@@ -11,11 +11,11 @@ import 'read_only_store_transaction.dart';
 mixin RemoteMixin<T extends Object> implements ReadStoreRemote<T> {
   ReloadStrategy get reloadStrategy;
 
-  @visibleForOverriding
   Storage<T> get storage;
 
-  @visibleForOverriding
   FirebaseStore<T> get firebaseStore;
+
+  void onInvalidPath(String path);
 
   @override
   Future<void> reload([Filter? filter]) async {
@@ -28,6 +28,7 @@ mixin RemoteMixin<T extends Object> implements ReadStoreRemote<T> {
   @override
   Future<StreamSubscription<void>> sync({
     Filter? filter,
+    void Function()? onUpdate,
     Function? onError,
     void Function()? onDone,
     bool cancelOnError = false,
@@ -36,7 +37,7 @@ mixin RemoteMixin<T extends Object> implements ReadStoreRemote<T> {
         ? firebaseStore.streamQuery(filter)
         : firebaseStore.streamAll());
     return stream.asyncMap(_handleStreamEvent).listen(
-          null,
+          onUpdate != null ? (_) => onUpdate() : null,
           onError: onError,
           onDone: onDone,
           cancelOnError: cancelOnError,
@@ -46,6 +47,7 @@ mixin RemoteMixin<T extends Object> implements ReadStoreRemote<T> {
   @override
   StreamSubscription<void> syncRenewed({
     FutureOr<Filter> Function()? onRenewFilter,
+    void Function()? onUpdate,
     Function? onError,
     void Function()? onDone,
     bool cancelOnError = false,
@@ -56,7 +58,7 @@ mixin RemoteMixin<T extends Object> implements ReadStoreRemote<T> {
             ? firebaseStore.streamQuery(filter)
             : firebaseStore.streamAll();
       }).asyncMap(_handleStreamEvent).listen(
-            null,
+            onUpdate != null ? (_) => onUpdate() : null,
             onError: onError,
             onDone: onDone,
             cancelOnError: cancelOnError,
@@ -129,9 +131,9 @@ mixin RemoteMixin<T extends Object> implements ReadStoreRemote<T> {
 
   FutureOr<void> _handleStreamEvent(StoreEvent<T> event) =>
       event.when<FutureOr<void>>(
-        reset: (data) => _reset(data),
-        put: (key, value) => storage.writeEntry(key, value),
-        delete: (key) => storage.deleteEntry(key),
+        reset: _reset,
+        put: storage.writeEntry,
+        delete: storage.deleteEntry,
         patch: (key, patchSet) async {
           final currentValue = await storage.readEntry(key);
           if (currentValue != null) {
@@ -139,9 +141,7 @@ mixin RemoteMixin<T extends Object> implements ReadStoreRemote<T> {
           }
         },
         // ignore: void_checks
-        invalidPath: (path) {
-          throw UnimplementedError('invalidPath has not been implemented yet');
-        },
+        invalidPath: onInvalidPath,
       );
 
   Future<void> _reset(Map<String, T> entries) async {
