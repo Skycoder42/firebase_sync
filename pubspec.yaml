@@ -1,0 +1,17 @@
+name: firebase_sync
+description: A cross platform dart package that provides local synchronization with the firebase realtime database.
+version: 0.1.0
+homepage: https://github.com/Skycoder42/firebase_sync
+environment:
+  sdk: '>=2.13.0 <3.0.0'
+
+dependencies:
+  firebase_database_rest: ^1.0.3
+  sodium: ^1.0.0
+
+dev_dependencies:
+  coverage: ^1.0.3
+  dart_pre_commit: ^2.3.2
+  lint: ^1.5.3
+  mocktail: ^0.1.4
+  test: ^1.17.9
