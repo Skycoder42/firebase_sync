@@ -1,0 +1,29 @@
+name: firebase_sync
+
+packages:
+  - "."
+
+scripts:
+  get:
+    run: dart pub get
+
+  build:
+    run: dart run build_runner build
+
+  build:watch:
+    run: dart run build_runner watch
+
+  pre-commit:init:
+    run: >-
+      bash -c "echo -e 
+      '#!/bin/sh\nexec dart pub global run melos run pre-commit:run' 
+      > .git/hooks/pre-commit && chmod a+x .git/hooks/pre-commit"
+    description: Setup pre commit hooks
+
+  pre-commit:remove:
+    run: rm -f .git/hooks/pre-commit
+    description: Remove pre commit hooks
+
+  pre-commit:run:
+    run: dart run dart_pre_commit -tp -oany --ansi
+    description: Run pre commit hooks

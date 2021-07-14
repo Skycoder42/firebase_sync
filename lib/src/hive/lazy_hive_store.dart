@@ -1,0 +1,151 @@
+import 'dart:async';
+
+import 'package:hive/hive.dart';
+import 'package:meta/meta.dart';
+import 'package:synchronized/synchronized.dart';
+
+import '../core/store.dart';
+import '../core/store_event.dart';
+import '../core/sync_object.dart';
+import '../core/update_action.dart';
+import '../sync/sync_mixin.dart';
+import 'hive_sync_store.dart';
+
+class LazyHiveStore<T extends Object> with SyncMixin<T> implements Store<T> {
+  static late final _boxLocks = Expando<Lock>();
+
+  final LazyBox<SyncObject<T>> _rawBox;
+
+  LazyHiveStore(this._rawBox);
+
+  @override
+  @internal
+  late final SyncStore<T> syncStore = LazyHiveSyncStore(_rawBox, _lock);
+
+  @override
+  Future<int> count() => _run(
+        () => Stream.fromIterable(_rawBox.keys)
+            .asyncMap((key) => _rawBox.get(key))
+            .where((value) => value?.value != null)
+            .length,
+      );
+
+  @override
+  Future<Iterable<String>> listKeys() => _run(
+        () => Stream.fromIterable(_rawBox.keys)
+            .asyncMap((key) async => MapEntry(key, await _rawBox.get(key)))
+            .where((entry) => entry.value?.value != null)
+            .map((entry) => entry.key as String)
+            .toList(),
+      );
+
+  @override
+  Future<Map<String, T>> listEntries() => _run(
+        () async => Map.fromEntries(
+          await Stream.fromIterable(_rawBox.keys)
+              .asyncMap(
+                (key) async => MapEntry(
+                  key as String,
+                  await _rawBox.get(key),
+                ),
+              )
+              .where((entry) => entry.value?.value != null)
+              .map((entry) => MapEntry(entry.key, entry.value!.value!))
+              .toList(),
+        ),
+      );
+
+  @override
+  Future<bool> contains(String key) => _run(
+        () => _rawBox.get(key).then((value) => value?.value != null),
+      );
+
+  @override
+  Future<T?> get(String key) => _run(
+        () => _rawBox.get(key).then((value) => value?.value),
+      );
+
+  @override
+  Future<void> put(String key, T value) => _run(() async {
+        final entry = await _rawBox.get(key);
+        if (entry == null) {
+          await _rawBox.put(key, SyncObject.local(value));
+        } else if (entry.value != value) {
+          await _rawBox.put(key, entry.updateLocal(value));
+        }
+      });
+
+  @override
+  Future<UpdateResult<T>> update(String key, UpdateFn<T> onUpdate) =>
+      _run(() async {
+        final entry = await _rawBox.get(key);
+        return onUpdate(entry?.value).when(
+          none: () => UpdateResult(value: entry?.value, updated: false),
+          update: (value) async {
+            if (entry == null) {
+              await _rawBox.put(key, SyncObject.local(value));
+            } else {
+              await _rawBox.put(key, entry.updateLocal(value));
+            }
+            return UpdateResult(value: value, updated: true);
+          },
+          delete: () async {
+            if (entry != null) {
+              await _rawBox.put(key, entry.updateLocal(null));
+            }
+            return const UpdateResult(value: null, updated: true);
+          },
+        );
+      });
+
+  @override
+  Future<void> delete(String key) => _run(() async {
+        final entry = await _rawBox.get(key);
+        if (entry?.value != null) {
+          await _rawBox.put(key, entry!.updateLocal(null));
+        }
+      });
+
+  @override
+  Stream<StoreEvent<T>> watch() => _rawBox.watch().map(
+        (event) => StoreEvent(
+          key: event.key as String,
+          value: event.deleted ? null : (event as SyncObject<T>).value,
+        ),
+      );
+
+  // hive extensions
+
+  Future<bool> isEmpty() => count().then((v) => v == 0);
+
+  Future<bool> isNotEmpty() => count().then((v) => v > 0);
+
+  bool get isOpen => _rawBox.isOpen;
+
+  bool get lazy => _rawBox.lazy;
+
+  String get name => _rawBox.name;
+
+  String? get path => _rawBox.path;
+
+  // TODO clear
+
+  Future<void> close() => _rawBox.close();
+
+  Future<void> compact() => _rawBox.compact();
+
+  // TODO stop sync if running?
+  Future<void> deleteFromDisk() => _rawBox.deleteFromDisk();
+
+  Future<Iterable<T>> values() => _run(
+        () => Stream.fromIterable(_rawBox.keys)
+            .asyncMap((key) => _rawBox.get(key))
+            .where((value) => value?.value != null)
+            .map((value) => value!.value!)
+            .toList(),
+      );
+
+  Lock get _lock => _boxLocks[_rawBox] ??= Lock();
+
+  Future<TR> _run<TR>(FutureOr<TR> Function() run) => _lock.synchronized(run);
+}
