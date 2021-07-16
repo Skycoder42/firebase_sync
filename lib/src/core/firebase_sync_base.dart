@@ -1,10 +1,11 @@
 import 'package:firebase_database_rest/firebase_database_rest.dart';
-import 'package:firebase_sync/src/core/store/sync_object_store.dart';
-import 'package:firebase_sync/src/core/sync/sync_node.dart';
 import 'package:meta/meta.dart';
 
 import 'crypto/crypto_firebase_store.dart';
+import 'store/sync_object_store.dart';
+import 'sync/sync_engine.dart';
 import 'sync/sync_mode.dart';
+import 'sync/sync_node.dart';
 import 'sync_store.dart';
 
 abstract class FirebaseSyncBase {
@@ -13,9 +14,19 @@ abstract class FirebaseSyncBase {
   final Map<Type, JsonConverter<dynamic>> _jsonConverters = {};
   final Map<String, SyncNode<dynamic>> _syncNodes = {};
 
+  final SyncEngine syncEngine;
+
   FirebaseSyncBase({
     required this.rootStore,
-  });
+    int parallelJobs = SyncEngine.defaultParallelJobs,
+    bool startSync = true,
+  }) : syncEngine = SyncEngine(
+          parallelJobs: parallelJobs,
+        ) {
+    if (startSync) {
+      syncEngine.start();
+    }
+  }
 
   bool isStoreOpen(String name);
 
@@ -27,9 +38,9 @@ abstract class FirebaseSyncBase {
   SyncStore<T> store<T extends Object>(String name);
 
   @mustCallSuper
-  Future<void> close() {
+  Future<void> close() async {
     _syncNodes.clear();
-    return Future.value();
+    await syncEngine.stop(); // TODO use "done" future
   }
 
   bool isConverterRegistered<T extends Object>() =>

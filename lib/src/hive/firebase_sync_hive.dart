@@ -1,20 +1,18 @@
 import 'package:firebase_database_rest/firebase_database_rest.dart';
-import 'package:firebase_sync/src/core/store/sync_object_store.dart';
-import 'package:firebase_sync/src/hive/hive_sync_object_store.dart';
 import 'package:hive/hive.dart';
 // ignore: implementation_imports
 import 'package:hive/src/box/default_compaction_strategy.dart';
 // ignore: implementation_imports
 import 'package:hive/src/box/default_key_comparator.dart';
-import 'package:meta/meta.dart';
 import 'package:sodium/sodium.dart';
 
-import '../core/crypto/crypto_firebase_store.dart';
 import '../core/crypto/key_manager.dart';
 import '../core/firebase_sync_base.dart';
 import '../core/store/sync_object.dart';
+import '../core/sync/sync_engine.dart';
 import '../core/sync/sync_mode.dart';
 import 'crypto/sodium_hive_cipher.dart';
+import 'hive_sync_object_store.dart';
 import 'hive_sync_store.dart';
 
 class FirebaseSyncHive extends FirebaseSyncBase {
@@ -22,12 +20,18 @@ class FirebaseSyncHive extends FirebaseSyncBase {
   final Sodium sodium;
   final KeyManager<SecureKey> keyManager;
 
-  FirebaseSyncHive(
-    this.hive,
-    this.sodium,
-    this.keyManager,
-    FirebaseStore<dynamic> rootStore,
-  ) : super(rootStore: rootStore);
+  FirebaseSyncHive({
+    required this.hive,
+    required this.sodium,
+    required this.keyManager,
+    required FirebaseStore<dynamic> rootStore,
+    int parallelJobs = SyncEngine.defaultParallelJobs,
+    bool startSync = true,
+  }) : super(
+          rootStore: rootStore,
+          parallelJobs: parallelJobs,
+          startSync: startSync,
+        );
 
   @override
   bool isStoreOpen(String name) => hive.isBoxOpen(name);
