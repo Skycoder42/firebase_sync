@@ -1,14 +1,14 @@
 import 'dart:async';
 
-import 'package:meta/meta.dart';
-
+import 'store_base.dart';
 import 'store_event.dart';
-import 'sync_object.dart';
 import 'update_action.dart';
 
-typedef UpdateFn<T extends Object> = UpdateAction<T> Function(T?);
+typedef UpdateFn<T extends Object> = UpdateAction<T> Function(T? oldValue);
 
-abstract class Store<T extends Object> {
+abstract class Store<T extends Object> implements StoreBase<T> {
+  const Store._();
+
   FutureOr<int> count();
 
   FutureOr<Iterable<String>> listKeys();
@@ -30,6 +30,3 @@ abstract class Store<T extends Object> {
 
   Stream<StoreEvent<T>> watch();
 }
-
-@internal
-abstract class SyncStore<T extends Object> implements Store<SyncObject<T>> {}

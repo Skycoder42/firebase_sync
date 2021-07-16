@@ -1,14 +1,22 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:firebase_sync/src/sync/job_scheduler.dart';
+
 import 'sync_job.dart';
 
-class SyncEngine {
+class _JobListEntry extends LinkedListEntry<_JobListEntry> {
+  final SyncJob job;
+
+  _JobListEntry(this.job);
+}
+
+class SyncEngine implements JobScheduler {
   int _parallelJobs = 5;
   bool _paused = false;
 
   Zone? _syncZone;
-  final _jobQueue = Queue<SyncJob>();
+  final _jobQueue = LinkedList<_JobListEntry>();
   final _activeJobs = <SyncJob>[];
   final _jobStreamSubscriptions = <StreamSubscription<SyncJob>>[];
 
@@ -22,6 +30,8 @@ class SyncEngine {
       _parallelJobs = parallelJobs;
     }
   }
+
+  bool get isRunning => _syncZone != null;
 
   void start() {
     _syncZone = Zone.current.fork(
@@ -50,18 +60,33 @@ class SyncEngine {
     );
   }
 
+  @override
   Future<bool> addJob(SyncJob job) {
-    _jobQueue.add(job);
+    _jobQueue.add(_JobListEntry(job));
     _invokeRun();
     return job.result;
   }
 
+  @override
   void addJobStream(Stream<SyncJob> jobStream) {
     if (_syncZone == null) {
-      throw UnimplementedError();
+      throw StateError('Engine must be running to add job streams!');
     }
 
-    _syncZone!.runGuarded(() => _subscribe(jobStream));
+    final subscription = jobStream.listen(
+      _syncZone!.bindUnaryCallbackGuarded((job) {
+        _jobQueue.add(_JobListEntry(job));
+        _enqueueRun();
+      }),
+      onError: _syncZone!.handleUncaughtError,
+      cancelOnError: false,
+    );
+    // TODO test if this works with cancelling
+    subscription.onDone(() => _jobStreamSubscriptions.remove(subscription));
+    if (_paused) {
+      subscription.pause();
+    }
+    _jobStreamSubscriptions.add(subscription);
   }
 
   bool get paused => _paused;
@@ -84,32 +109,24 @@ class SyncEngine {
   }
 
   void _run() {
-    while (!_paused &&
-        _activeJobs.length < _parallelJobs &&
-        _jobQueue.isNotEmpty) {
-      final nextJob = _jobQueue.removeFirst();
-      nextJob().whenComplete(() {
-        _activeJobs.remove(nextJob);
+    while (!_paused && _activeJobs.length < _parallelJobs) {
+      final nextJob = _jobQueue.cast<_JobListEntry?>().firstWhere(
+            (entry) => !_activeJobs
+                .map((j) => j.hashedKey)
+                .any((hashedKey) => hashedKey == entry!.job.hashedKey),
+            orElse: () => null,
+          );
+      if (nextJob == null) {
+        break;
+      }
+
+      nextJob.unlink();
+      nextJob.job(this).whenComplete(() {
+        _activeJobs.remove(nextJob.job);
         _enqueueRun();
       });
-      _activeJobs.add(nextJob);
+      _activeJobs.add(nextJob.job);
     }
-  }
-
-  void _subscribe(Stream<SyncJob> jobStream) {
-    final subscription = jobStream.listen(
-      (job) {
-        _jobQueue.add(job);
-        _enqueueRun();
-      },
-      cancelOnError: false,
-    );
-    if (_paused) {
-      subscription.pause();
-    }
-    // TODO test if this works with cancelling
-    subscription.onDone(() => _jobStreamSubscriptions.remove(subscription));
-    _jobStreamSubscriptions.add(subscription);
   }
 
   void _handleZoneError(
@@ -121,6 +138,7 @@ class SyncEngine {
   ) {
     try {
       // TODO clean
+      // ignore: avoid_print
       print('$error\n$stackTrace');
     } catch (e, s) {
       if (identical(e, error)) {

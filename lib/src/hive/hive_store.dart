@@ -1,21 +1,15 @@
+import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hive/hive.dart';
-import 'package:meta/meta.dart';
 
-import '../core/store.dart';
-import '../core/store_event.dart';
-import '../core/sync_object.dart';
-import '../core/update_action.dart';
-import '../sync/sync_mixin.dart';
-import 'hive_sync_store.dart';
+import '../core/store/store.dart';
+import '../core/store/store_event.dart';
+import '../core/store/sync_object.dart';
+import '../core/store/update_action.dart';
 
-class HiveStore<T extends Object> with SyncMixin<T> implements Store<T> {
+class HiveStore<T extends Object> implements Store<T> {
   final Box<SyncObject<T>> _rawBox;
 
   HiveStore(this._rawBox);
-
-  @override
-  @internal
-  late final SyncStore<T> syncStore = HiveSyncStore(_rawBox);
 
   @override
   int count() => _rawBox
@@ -110,7 +104,8 @@ class HiveStore<T extends Object> with SyncMixin<T> implements Store<T> {
 
   // TODO clear
 
-  Future<void> close() => _rawBox.close();
+  @protected
+  Future<void> closeBox() => _rawBox.close();
 
   Future<void> compact() => _rawBox.compact();
 

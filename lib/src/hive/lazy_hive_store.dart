@@ -4,23 +4,15 @@ import 'package:hive/hive.dart';
 import 'package:meta/meta.dart';
 import 'package:synchronized/synchronized.dart';
 
-import '../core/store.dart';
-import '../core/store_event.dart';
-import '../core/sync_object.dart';
-import '../core/update_action.dart';
-import '../sync/sync_mixin.dart';
-import 'hive_sync_store.dart';
+import '../core/store/store.dart';
+import '../core/store/store_event.dart';
+import '../core/store/sync_object.dart';
+import '../core/store/update_action.dart';
 
-class LazyHiveStore<T extends Object> with SyncMixin<T> implements Store<T> {
-  static late final _boxLocks = Expando<Lock>();
-
+class LazyHiveStore<T extends Object> implements Store<T> {
   final LazyBox<SyncObject<T>> _rawBox;
 
   LazyHiveStore(this._rawBox);
-
-  @override
-  @internal
-  late final SyncStore<T> syncStore = LazyHiveSyncStore(_rawBox, _lock);
 
   @override
   Future<int> count() => _run(
@@ -130,7 +122,8 @@ class LazyHiveStore<T extends Object> with SyncMixin<T> implements Store<T> {
 
   // TODO clear
 
-  Future<void> close() => _rawBox.close();
+  @protected
+  Future<void> closeBox() => _rawBox.close();
 
   Future<void> compact() => _rawBox.compact();
 
@@ -145,7 +138,13 @@ class LazyHiveStore<T extends Object> with SyncMixin<T> implements Store<T> {
             .toList(),
       );
 
-  Lock get _lock => _boxLocks[_rawBox] ??= Lock();
+  Future<TR> _run<TR>(FutureOr<TR> Function() run) =>
+      _rawBox.lock.synchronized(run);
+}
 
-  Future<TR> _run<TR>(FutureOr<TR> Function() run) => _lock.synchronized(run);
+@internal
+extension LazyBoxLocksX on LazyBox<dynamic> {
+  static late final _boxLocks = Expando<Lock>();
+
+  Lock get lock => _boxLocks[this] ??= Lock();
 }
