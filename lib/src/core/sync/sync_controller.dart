@@ -5,7 +5,8 @@ abstract class SyncController<T extends Object> {
   const SyncController._();
 
   SyncMode get syncMode;
-  set syncMode(SyncMode syncMode);
+
+  Future<void> setSyncMode(SyncMode syncMode);
 
   Future<int> download([Filter? filter]);
 
@@ -15,8 +16,6 @@ abstract class SyncController<T extends Object> {
     Filter? filter,
     bool multipass = true,
   });
-
-  Future<MapEntry<String, T>> create(T value);
 
   Future<void> destroy();
 }

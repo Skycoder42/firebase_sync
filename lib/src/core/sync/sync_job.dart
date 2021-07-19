@@ -2,8 +2,6 @@ import 'dart:async';
 
 import 'package:meta/meta.dart';
 
-import 'job_scheduler.dart';
-
 enum SyncJobResult {
   success,
   noop,
@@ -20,9 +18,9 @@ abstract class SyncJob {
   String get hashedKey;
 
   @nonVirtual
-  Future<void> call(JobScheduler scheduler) => Future(() async {
+  Future<void> call() => Future(() async {
         try {
-          final modified = await execute(scheduler);
+          final modified = await execute();
           _completer.complete(
             modified ? SyncJobResult.success : SyncJobResult.noop,
           );
@@ -37,5 +35,5 @@ abstract class SyncJob {
       storeName == other.storeName && hashedKey == other.hashedKey;
 
   @protected
-  Future<bool> execute(JobScheduler scheduler);
+  Future<bool> execute();
 }

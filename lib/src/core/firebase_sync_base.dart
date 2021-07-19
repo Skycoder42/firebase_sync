@@ -1,5 +1,8 @@
 import 'package:firebase_database_rest/firebase_database_rest.dart';
+import 'package:firebase_sync/src/core/crypto/crypto_service.dart';
+import 'package:firebase_sync/src/core/sync/conflict_resolver.dart';
 import 'package:meta/meta.dart';
+import 'package:tuple/tuple.dart';
 
 import 'crypto/crypto_firebase_store.dart';
 import 'store/sync_object_store.dart';
@@ -9,15 +12,13 @@ import 'sync/sync_node.dart';
 import 'sync_store.dart';
 
 abstract class FirebaseSyncBase {
-  final FirebaseStore<dynamic> rootStore;
-
-  final Map<Type, JsonConverter<dynamic>> _jsonConverters = {};
-  final Map<String, SyncNode<dynamic>> _syncNodes = {};
+  final _jsonConverters =
+      <Type, Tuple2<JsonConverter<dynamic>, ConflictResolver<dynamic>>>{};
+  final _syncNodes = <String, SyncNode<dynamic>>{};
 
   final SyncEngine syncEngine;
 
   FirebaseSyncBase({
-    required this.rootStore,
     int parallelJobs = SyncEngine.defaultParallelJobs,
     bool startSync = true,
   }) : syncEngine = SyncEngine(
@@ -27,6 +28,10 @@ abstract class FirebaseSyncBase {
       syncEngine.start();
     }
   }
+
+  FirebaseStore<dynamic> get rootStore;
+
+  CryptoService get cryptoService;
 
   bool isStoreOpen(String name);
 
@@ -40,23 +45,29 @@ abstract class FirebaseSyncBase {
   @mustCallSuper
   Future<void> close() async {
     _syncNodes.clear();
-    await syncEngine.stop(); // TODO use "done" future
+    await syncEngine.stop();
   }
 
   bool isConverterRegistered<T extends Object>() =>
       _jsonConverters.containsKey(T);
 
-  void registerConverter<T extends Object>(
-    JsonConverter<T> converter, {
+  void registerConverter<T extends Object>({
+    required JsonConverter<T> converter,
+    ConflictResolver<T>? conflictResolver,
     bool override = false,
   }) {
     _jsonConverters.update(
       T,
       (_) => override
-          ? converter
-          : throw StateError(
-              'Converter for $T already registered!'), // TODO proper exception
-      ifAbsent: () => converter,
+          ? Tuple2(
+              converter,
+              conflictResolver ?? const ConflictResolver(),
+            )
+          : throw StateError('JSON-Converter already registered for type $T'),
+      ifAbsent: () => Tuple2(
+        converter,
+        conflictResolver ?? const ConflictResolver(),
+      ),
     );
   }
 
@@ -65,10 +76,15 @@ abstract class FirebaseSyncBase {
     String name,
     SyncObjectStore<T> localStore,
   ) {
+    final converterTuple = _getConverter<T>();
     return _syncNodes.putIfAbsent(
       name,
       () => SyncNode(
-        jsonConverter: _getConverter<T>(),
+        storeName: name,
+        jobScheduler: syncEngine,
+        cryptoService: cryptoService,
+        jsonConverter: converterTuple.item1,
+        conflictResolver: converterTuple.item2,
         localStore: localStore,
         remoteStore: CryptoFirebaseStore(
           parent: rootStore,
@@ -82,22 +98,24 @@ abstract class FirebaseSyncBase {
   SyncNode<T> getSyncNode<T extends Object>(String name) {
     final syncNode = _syncNodes[name];
     if (syncNode == null) {
-      throw StateError(
-        'No syncNode for store named "$name". Create one via createSyncNode', // TODO proper exception
-      );
+      throw StateError('createSyncNode must be called before getSyncNode');
     }
 
     return syncNode as SyncNode<T>;
   }
 
-  JsonConverter<T> _getConverter<T extends Object>() {
-    final converter = _jsonConverters[T];
-    if (converter == null) {
+  Tuple2<JsonConverter<T>, ConflictResolver<T>>
+      _getConverter<T extends Object>() {
+    final converterTuple = _jsonConverters[T];
+    if (converterTuple == null) {
       throw StateError(
-        'No converter for type $T. Register one via registerConverter', // TODO proper exception
+        'No converter for type $T. Register one via registerConverter',
       );
     }
 
-    return converter as JsonConverter<T>;
+    return Tuple2(
+      converterTuple.item1 as JsonConverter<T>,
+      converterTuple.item2 as ConflictResolver<T>,
+    );
   }
 }

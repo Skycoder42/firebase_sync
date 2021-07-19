@@ -1,4 +1,8 @@
 import 'package:firebase_database_rest/firebase_database_rest.dart';
+import 'package:firebase_sync/src/core/sync/conflict_resolver.dart';
+import 'package:firebase_sync/src/sodium/key_controller.dart';
+import 'package:firebase_sync/src/sodium/sodium_crypto_service.dart';
+import 'package:firebase_sync/src/sodium/sodium_key_manager.dart';
 import 'package:hive/hive.dart';
 // ignore: implementation_imports
 import 'package:hive/src/box/default_compaction_strategy.dart';
@@ -6,7 +10,6 @@ import 'package:hive/src/box/default_compaction_strategy.dart';
 import 'package:hive/src/box/default_key_comparator.dart';
 import 'package:sodium/sodium.dart';
 
-import '../core/crypto/key_manager.dart';
 import '../core/firebase_sync_base.dart';
 import '../core/store/sync_object.dart';
 import '../core/sync/sync_engine.dart';
@@ -18,17 +21,30 @@ import 'hive_sync_store.dart';
 class FirebaseSyncHive extends FirebaseSyncBase {
   final HiveInterface hive;
   final Sodium sodium;
-  final KeyManager<SecureKey> keyManager;
+  final KeyController keyController;
+
+  late final SodiumKeyManager keyManager = SodiumKeyManager(
+    keyController: keyController,
+    sodium: sodium,
+  );
+
+  @override
+  late final SodiumCryptoService cryptoService = SodiumCryptoService(
+    sodium: sodium,
+    keyManager: keyManager,
+  );
+
+  @override
+  final FirebaseStore<dynamic> rootStore;
 
   FirebaseSyncHive({
     required this.hive,
     required this.sodium,
-    required this.keyManager,
-    required FirebaseStore<dynamic> rootStore,
+    required this.keyController,
+    required this.rootStore,
     int parallelJobs = SyncEngine.defaultParallelJobs,
     bool startSync = true,
   }) : super(
-          rootStore: rootStore,
           parallelJobs: parallelJobs,
           startSync: startSync,
         );
@@ -106,12 +122,17 @@ class FirebaseSyncHive extends FirebaseSyncBase {
   }
 
   @override
-  void registerConverter<T extends Object>(
-    JsonConverter<T> converter, {
+  void registerConverter<T extends Object>({
+    required JsonConverter<T> converter,
+    ConflictResolver<T>? conflictResolver,
     bool override = false,
     TypeAdapter<T>? hiveAdapter,
   }) {
-    super.registerConverter(converter);
+    super.registerConverter(
+      converter: converter,
+      conflictResolver: conflictResolver,
+      override: override,
+    );
     if (hiveAdapter != null) {
       hive.registerAdapter(
         hiveAdapter,
@@ -122,9 +143,9 @@ class FirebaseSyncHive extends FirebaseSyncBase {
 
   Future<HiveCipher> _createCipher(String storeName) async => SodiumHiveCipher(
         sodium: sodium,
-        encryptionKey: await keyManager.localEncryptionKey(
-          storeName,
-          SodiumHiveCipher.keyBytes(sodium),
+        encryptionKey: keyManager.localEncryptionKey(
+          storeName: storeName,
+          keyBytes: SodiumHiveCipher.keyBytes(sodium),
         ),
       );
 }

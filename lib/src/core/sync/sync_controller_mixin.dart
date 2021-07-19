@@ -1,6 +1,10 @@
 import 'package:firebase_database_rest/firebase_database_rest.dart';
+import 'package:firebase_sync/src/core/sync/job_scheduler.dart';
+import 'package:firebase_sync/src/core/sync/jobs/download_job.dart';
+import 'package:firebase_sync/src/core/sync/sync_job.dart';
 import 'package:meta/meta.dart';
 
+import 'jobs/upload_job.dart';
 import 'sync_controller.dart';
 import 'sync_mode.dart';
 import 'sync_node.dart';
@@ -10,43 +14,141 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
   SyncNode<T> get syncNode;
 
   SyncMode _syncMode = SyncMode.none;
+  StreamCancallationToken? _uploadToken;
+  StreamCancallationToken? _downloadToken;
 
   @override
   SyncMode get syncMode => _syncMode;
 
   @override
-  set syncMode(SyncMode syncMode) {
-    // TODO: implement set syncMode
-    throw UnimplementedError();
+  Future<void> setSyncMode(SyncMode syncMode) async {
+    if (syncMode == _syncMode) {
+      return;
+    }
+
+    switch (syncMode) {
+      case SyncMode.none:
+        _stopDownsync();
+        _stopUpsync();
+        break;
+      case SyncMode.upload:
+        _stopDownsync();
+        _startUpsync();
+        break;
+      case SyncMode.download:
+        _stopUpsync();
+        await _startDownsync();
+        break;
+      case SyncMode.sync:
+        _startUpsync();
+        await _startDownsync();
+        break;
+    }
+
+    _syncMode = syncMode;
   }
 
   @override
-  Future<int> download([Filter? filter]) {
-    // TODO: implement download
-    throw UnimplementedError();
+  Future<int> download([Filter? filter]) async {
+    final allKeys = filter != null
+        ? await syncNode.remoteStore.queryKeys(filter)
+        : await syncNode.remoteStore.keys();
+
+    final jobResults = await syncNode.jobScheduler.addJobs(
+      allKeys
+          .map(
+            (hashedKey) => DownloadJob(
+              syncNode: syncNode,
+              hashedKey: hashedKey,
+            ),
+          )
+          .toList(),
+    );
+
+    return jobResults.successCount();
   }
 
   @override
-  Future<int> upload({bool multipass = true}) {
-    // TODO: implement upload
-    throw UnimplementedError();
+  Future<int> upload({bool multipass = true}) async {
+    final entries = await syncNode.localStore.listEntries();
+    final jobResults = await syncNode.jobScheduler.addJobs(
+      entries.entries
+          .where((entry) => entry.value.locallyModified)
+          .map((entry) => UploadJob(
+                syncNode: syncNode,
+                key: entry.key,
+                multipass: false,
+              ))
+          .toList(),
+    );
+
+    return jobResults.successCount();
   }
 
   @override
-  Future<int> reload({Filter? filter, bool multipass = true}) {
-    // TODO: implement reload
-    throw UnimplementedError();
+  Future<int> reload({Filter? filter, bool multipass = true}) async {
+    final downloadCnt = await download(filter);
+    final uploadCnt = await upload(multipass: multipass);
+    return downloadCnt + uploadCnt;
   }
 
   @override
-  Future<MapEntry<String, T>> create(T value) {
-    // TODO: implement create
-    throw UnimplementedError();
+  Future<void> destroy() => syncNode.remoteStore.destroy();
+
+  void _startUpsync() {
+    _uploadToken ??= syncNode.jobScheduler.addJobStream(
+      syncNode.localStore
+          .watch()
+          .where((event) => event.value?.locallyModified ?? false)
+          .map(
+            (event) => UploadJob(
+              syncNode: syncNode,
+              key: event.key,
+              multipass: false,
+            ),
+          ),
+    );
   }
 
-  @override
-  Future<void> destroy() {
-    // TODO: implement destroy
-    throw UnimplementedError();
+  void _stopUpsync() {
+    _uploadToken?.cancel();
+    _uploadToken = null;
   }
+
+  Future<void> _startDownsync() async {
+    if (_downloadToken == null) {
+      final stream = await syncNode.remoteStore.streamKeys();
+      _downloadToken ??= syncNode.jobScheduler.addJobStream(
+        stream
+            .map(
+              (event) => event.when(
+                reset: (hashedKeys) => hashedKeys,
+                update: (hashedKey) => [hashedKey],
+                delete: (hashedKey) => [hashedKey],
+                invalidPath: (_) => const <String>[],
+              ),
+            )
+            .expand((hashedKeys) => hashedKeys)
+            .map(
+              (hashedKey) => DownloadJob(
+                syncNode: syncNode,
+                hashedKey: hashedKey,
+              ),
+            ),
+      );
+    }
+  }
+
+  void _stopDownsync() {
+    _downloadToken?.cancel();
+    _downloadToken = null;
+  }
+}
+
+extension _SyncJobResultListX on Iterable<SyncJobResult> {
+  int successCount() => fold<int>(
+        0,
+        (previousValue, result) =>
+            result == SyncJobResult.success ? previousValue + 1 : previousValue,
+      );
 }

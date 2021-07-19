@@ -1,4 +1,12 @@
+import 'dart:async';
+
 import 'sync_job.dart';
+
+abstract class StreamCancallationToken {
+  const StreamCancallationToken._();
+
+  Future<void> cancel();
+}
 
 abstract class JobScheduler {
   const JobScheduler._();
@@ -7,5 +15,5 @@ abstract class JobScheduler {
 
   Future<Iterable<SyncJobResult>> addJobs(List<SyncJob> jobs);
 
-  void addJobStream(Stream<SyncJob> jobStream);
+  StreamCancallationToken addJobStream(Stream<SyncJob> jobStream);
 }

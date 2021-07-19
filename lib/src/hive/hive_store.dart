@@ -2,9 +2,9 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hive/hive.dart';
 
 import '../core/store/store.dart';
+import '../core/store/store_base.dart';
 import '../core/store/store_event.dart';
 import '../core/store/sync_object.dart';
-import '../core/store/update_action.dart';
 
 class HiveStore<T extends Object> implements Store<T> {
   final Box<SyncObject<T>> _rawBox;
@@ -51,23 +51,23 @@ class HiveStore<T extends Object> implements Store<T> {
   }
 
   @override
-  UpdateResult<T> update(String key, UpdateFn<T> onUpdate) {
+  T? update(String key, UpdateFn<T> onUpdate) {
     final entry = _rawBox.get(key);
     return onUpdate(entry?.value).when(
-      none: () => UpdateResult(value: entry?.value, updated: false),
+      none: () => entry?.value,
       update: (value) {
         if (entry == null) {
           _rawBox.put(key, SyncObject.local(value));
         } else {
           _rawBox.put(key, entry.updateLocal(value));
         }
-        return UpdateResult(value: value, updated: true);
+        return value;
       },
       delete: () {
         if (entry != null) {
           _rawBox.put(key, entry.updateLocal(null));
         }
-        return const UpdateResult(value: null, updated: true);
+        return null;
       },
     );
   }

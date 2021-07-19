@@ -26,13 +26,27 @@ class SyncObject<T extends Object> with _$SyncObject<T> {
 
   bool get locallyModified => changeState > 0;
 
-  SyncObject<T> updateLocal(T? value) => copyWith(
+  SyncObject<T> updateLocal(T? value, {String? eTag}) => copyWith(
         value: value,
         changeState: changeState + 1,
+        eTag: eTag ?? this.eTag,
+      );
+
+  SyncObject<T> updateRemote(T? value, String eTag) => copyWith(
+        value: value,
+        eTag: eTag,
       );
 
   SyncObject<T> updateUploaded(String eTag) => copyWith(
         changeState: 0,
         eTag: eTag,
       );
+
+  SyncObject<T> updateEtag(String eTag) => copyWith(
+        eTag: eTag,
+      );
+
+  @override
+  @visibleForTesting
+  $SyncObjectCopyWith<T, SyncObject<T>> get copyWith => super.copyWith;
 }

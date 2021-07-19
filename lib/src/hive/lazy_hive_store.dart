@@ -5,9 +5,9 @@ import 'package:meta/meta.dart';
 import 'package:synchronized/synchronized.dart';
 
 import '../core/store/store.dart';
+import '../core/store/store_base.dart';
 import '../core/store/store_event.dart';
 import '../core/store/sync_object.dart';
-import '../core/store/update_action.dart';
 
 class LazyHiveStore<T extends Object> implements Store<T> {
   final LazyBox<SyncObject<T>> _rawBox;
@@ -16,16 +16,21 @@ class LazyHiveStore<T extends Object> implements Store<T> {
 
   @override
   Future<int> count() => _run(
-        () => Stream.fromIterable(_rawBox.keys)
-            .asyncMap((key) => _rawBox.get(key))
+        () => Stream<dynamic>.fromIterable(_rawBox.keys)
+            .asyncMap((dynamic key) => _rawBox.get(key))
             .where((value) => value?.value != null)
             .length,
       );
 
   @override
   Future<Iterable<String>> listKeys() => _run(
-        () => Stream.fromIterable(_rawBox.keys)
-            .asyncMap((key) async => MapEntry(key, await _rawBox.get(key)))
+        () => Stream<dynamic>.fromIterable(_rawBox.keys)
+            .asyncMap(
+              (dynamic key) async => MapEntry<dynamic, SyncObject<T>?>(
+                key,
+                await _rawBox.get(key),
+              ),
+            )
             .where((entry) => entry.value?.value != null)
             .map((entry) => entry.key as String)
             .toList(),
@@ -34,9 +39,9 @@ class LazyHiveStore<T extends Object> implements Store<T> {
   @override
   Future<Map<String, T>> listEntries() => _run(
         () async => Map.fromEntries(
-          await Stream.fromIterable(_rawBox.keys)
+          await Stream<dynamic>.fromIterable(_rawBox.keys)
               .asyncMap(
-                (key) async => MapEntry(
+                (dynamic key) async => MapEntry(
                   key as String,
                   await _rawBox.get(key),
                 ),
@@ -68,24 +73,23 @@ class LazyHiveStore<T extends Object> implements Store<T> {
       });
 
   @override
-  Future<UpdateResult<T>> update(String key, UpdateFn<T> onUpdate) =>
-      _run(() async {
+  Future<T?> update(String key, UpdateFn<T> onUpdate) => _run(() async {
         final entry = await _rawBox.get(key);
         return onUpdate(entry?.value).when(
-          none: () => UpdateResult(value: entry?.value, updated: false),
+          none: () => entry?.value,
           update: (value) async {
             if (entry == null) {
               await _rawBox.put(key, SyncObject.local(value));
             } else {
               await _rawBox.put(key, entry.updateLocal(value));
             }
-            return UpdateResult(value: value, updated: true);
+            return value;
           },
           delete: () async {
             if (entry != null) {
               await _rawBox.put(key, entry.updateLocal(null));
             }
-            return const UpdateResult(value: null, updated: true);
+            return null;
           },
         );
       });
@@ -131,8 +135,8 @@ class LazyHiveStore<T extends Object> implements Store<T> {
   Future<void> deleteFromDisk() => _rawBox.deleteFromDisk();
 
   Future<Iterable<T>> values() => _run(
-        () => Stream.fromIterable(_rawBox.keys)
-            .asyncMap((key) => _rawBox.get(key))
+        () => Stream<dynamic>.fromIterable(_rawBox.keys)
+            .asyncMap((dynamic key) => _rawBox.get(key))
             .where((value) => value?.value != null)
             .map((value) => value!.value!)
             .toList(),

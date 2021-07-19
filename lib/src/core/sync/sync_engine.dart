@@ -6,12 +6,6 @@ import 'package:meta/meta.dart';
 import 'job_scheduler.dart';
 import 'sync_job.dart';
 
-class _JobListEntry extends LinkedListEntry<_JobListEntry> {
-  final SyncJob job;
-
-  _JobListEntry(this.job);
-}
-
 class SyncEngine implements JobScheduler {
   static const defaultParallelJobs = 5;
 
@@ -22,6 +16,8 @@ class SyncEngine implements JobScheduler {
   final _jobQueue = LinkedList<_JobListEntry>();
   final _activeJobs = <SyncJob>[];
   final _jobStreamSubscriptions = <StreamSubscription<SyncJob>>[];
+
+  Future<void>? _stopFuture;
 
   SyncEngine({
     int parallelJobs = defaultParallelJobs,
@@ -41,11 +37,14 @@ class SyncEngine implements JobScheduler {
   bool get isRunning => _syncZone != null;
 
   void start() {
-    _syncZone = Zone.current.fork(
+    _stopFuture = null;
+
+    _syncZone ??= Zone.current.fork(
       specification: ZoneSpecification(
         handleUncaughtError: _handleZoneError,
       ),
     );
+
     _run();
   }
 
@@ -56,7 +55,7 @@ class SyncEngine implements JobScheduler {
       _jobQueue.clear();
     }
 
-    await Future.wait(
+    _stopFuture ??= Future.wait(
       _jobStreamSubscriptions
           .map(
             (sub) => sub.cancel(),
@@ -65,6 +64,8 @@ class SyncEngine implements JobScheduler {
             _activeJobs.map((j) => j.result),
           ),
     );
+
+    await _stopFuture;
   }
 
   bool get paused => _paused;
@@ -104,16 +105,9 @@ class SyncEngine implements JobScheduler {
 
   @override
   @internal
-  void addJobStream(Stream<SyncJob> jobStream) {
-    if (_syncZone == null) {
-      throw StateError('Engine must be running to add job streams!');
-    }
-
+  StreamCancallationToken addJobStream(Stream<SyncJob> jobStream) {
     final subscription = jobStream.listen(
-      (job) {
-        _jobQueue.add(_JobListEntry(job));
-        _run();
-      },
+      addJob,
       onError: _syncZone!.handleUncaughtError,
       cancelOnError: false,
     );
@@ -123,6 +117,8 @@ class SyncEngine implements JobScheduler {
       subscription.pause();
     }
     _jobStreamSubscriptions.add(subscription);
+
+    return _EngineStreamCancallationToken(this, subscription);
   }
 
   void _run() {
@@ -130,6 +126,7 @@ class SyncEngine implements JobScheduler {
       return;
     }
 
+    // TODO remove runGuarded here?
     _syncZone!.parent!.runGuarded(() {
       while (!_paused && _activeJobs.length < _parallelJobs) {
         final job = _nextJob();
@@ -149,12 +146,12 @@ class SyncEngine implements JobScheduler {
       _activeJobs.add(job);
       _syncZone!.run(() {
         Timer.run(() {
-          job(this).whenComplete(() => _completeJob(job));
+          job().whenComplete(() => _completeJob(job));
         });
       });
     } catch (e) {
       _activeJobs.remove(job);
-      addJob(job);
+      _jobQueue.add(_JobListEntry(job));
       rethrow;
     }
   }
@@ -196,4 +193,26 @@ class SyncEngine implements JobScheduler {
       }
     }
   }
+}
+
+class _EngineStreamCancallationToken implements StreamCancallationToken {
+  final SyncEngine _engine;
+  final StreamSubscription _streamSubscription;
+
+  _EngineStreamCancallationToken(this._engine, this._streamSubscription);
+
+  @override
+  Future<void> cancel() {
+    if (_engine._jobStreamSubscriptions.remove(_streamSubscription)) {
+      return _streamSubscription.cancel();
+    } else {
+      return Future.value();
+    }
+  }
+}
+
+class _JobListEntry extends LinkedListEntry<_JobListEntry> {
+  final SyncJob job;
+
+  _JobListEntry(this.job);
 }

@@ -3,11 +3,10 @@ import 'dart:async';
 import 'package:hive/hive.dart';
 import 'package:meta/meta.dart';
 
-import '../core/store/store.dart';
+import '../core/store/store_base.dart';
 import '../core/store/store_event.dart';
 import '../core/store/sync_object.dart';
 import '../core/store/sync_object_store.dart';
-import '../core/store/update_action.dart';
 import 'lazy_hive_store.dart';
 
 @internal
@@ -52,20 +51,20 @@ class HiveSyncObjectStore<T extends Object> extends HiveSyncObjectStoreBase<T> {
   }
 
   @override
-  UpdateResult<SyncObject<T>> update(
+  SyncObject<T>? update(
     String key,
     UpdateFn<SyncObject<T>> onUpdate,
   ) {
     final entry = box.get(key);
     return onUpdate(entry).when(
-      none: () => UpdateResult(value: entry, updated: false),
+      none: () => entry,
       update: (value) {
         box.put(key, value);
-        return UpdateResult(value: value, updated: true);
+        return value;
       },
       delete: () {
         box.delete(key);
-        return const UpdateResult(value: null, updated: true);
+        return null;
       },
     );
   }
@@ -87,9 +86,9 @@ class LazyHiveSyncObjectStore<T extends Object>
   @override
   Future<Map<String, SyncObject<T>>> listEntries() => box.lock.synchronized(
         () async => Map.fromEntries(
-          await Stream.fromIterable(box.keys)
+          await Stream<dynamic>.fromIterable(box.keys)
               .asyncMap(
-                (key) async => MapEntry(
+                (dynamic key) async => MapEntry(
                   key as String,
                   await box.get(key),
                 ),
@@ -109,21 +108,21 @@ class LazyHiveSyncObjectStore<T extends Object>
   FutureOr<void> put(String key, SyncObject<T> value) => box.put(key, value);
 
   @override
-  FutureOr<UpdateResult<SyncObject<T>>> update(
+  FutureOr<SyncObject<T>?> update(
     String key,
     UpdateFn<SyncObject<T>> onUpdate,
   ) =>
       box.lock.synchronized(() async {
         final entry = await box.get(key);
         return onUpdate(entry).when(
-          none: () => UpdateResult(value: entry, updated: false),
+          none: () => entry,
           update: (value) async {
             await box.put(key, value);
-            return UpdateResult(value: value, updated: true);
+            return value;
           },
           delete: () async {
             await box.delete(key);
-            return const UpdateResult(value: null, updated: true);
+            return null;
           },
         );
       });
