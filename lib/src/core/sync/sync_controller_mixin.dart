@@ -1,11 +1,11 @@
 import 'package:firebase_database_rest/firebase_database_rest.dart';
-import 'package:firebase_sync/src/core/sync/job_scheduler.dart';
-import 'package:firebase_sync/src/core/sync/jobs/download_job.dart';
-import 'package:firebase_sync/src/core/sync/sync_job.dart';
 import 'package:meta/meta.dart';
 
+import 'job_scheduler.dart';
+import 'jobs/download_job.dart';
 import 'jobs/upload_job.dart';
 import 'sync_controller.dart';
+import 'sync_job.dart';
 import 'sync_mode.dart';
 import 'sync_node.dart';
 
@@ -57,9 +57,9 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
     final jobResults = await syncNode.jobScheduler.addJobs(
       allKeys
           .map(
-            (hashedKey) => DownloadJob(
+            (key) => DownloadJob(
               syncNode: syncNode,
-              hashedKey: hashedKey,
+              key: key,
             ),
           )
           .toList(),
@@ -122,17 +122,17 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
         stream
             .map(
               (event) => event.when(
-                reset: (hashedKeys) => hashedKeys,
-                update: (hashedKey) => [hashedKey],
-                delete: (hashedKey) => [hashedKey],
+                reset: (key) => key,
+                update: (key) => [key],
+                delete: (key) => [key],
                 invalidPath: (_) => const <String>[],
               ),
             )
-            .expand((hashedKeys) => hashedKeys)
+            .expand((key) => key)
             .map(
-              (hashedKey) => DownloadJob(
+              (key) => DownloadJob(
                 syncNode: syncNode,
-                hashedKey: hashedKey,
+                key: key,
               ),
             ),
       );

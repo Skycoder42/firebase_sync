@@ -1,82 +1,66 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:firebase_sync/src/core/crypto/crypto_firebase_store.dart';
-import 'package:firebase_sync/src/core/crypto/cipher_message.dart';
-import 'package:firebase_sync/src/core/crypto/crypto_service.dart';
-import 'package:firebase_sync/src/sodium/sodium_key_manager.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:path/path.dart';
 import 'package:sodium/sodium.dart';
 
-part 'sodium_crypto_service.freezed.dart';
-part 'sodium_crypto_service.g.dart';
+import '../core/crypto/cipher_message.dart';
+import '../core/crypto/crypto_firebase_store.dart';
+import '../core/crypto/data_encryptor.dart';
+import 'sodium_key_manager.dart';
 
-class SodiumCryptoService implements CryptoService {
+part 'sodium_data_encryptor.freezed.dart';
+part 'sodium_data_encryptor.g.dart';
+
+class SodiumDataEncryptor implements DataEncryptor {
   final Sodium sodium;
   final SodiumKeyManager keyManager;
 
-  SodiumCryptoService({
+  SodiumDataEncryptor({
     required this.sodium,
     required this.keyManager,
   });
 
   @override
-  String keyHash({
-    required String storeName,
-    required String key,
-  }) {
-    final hashingKey = keyManager.keyHashingKey(
-      storeName: storeName,
-      keyBytes: sodium.crypto.genericHash.keyBytesMax,
-    );
-    try {
-      final hash = sodium.crypto.genericHash(
-        key: hashingKey,
-        outLen: sodium.crypto.genericHash.bytesMax,
-        message: key.toCharArray().unsignedView(),
-      );
-      return base64Url.encode(hash);
-    } finally {
-      hashingKey.dispose();
-    }
-  }
-
-  @override
-  Future<MapEntry<String, CipherMessage>> encrypt({
+  Future<CipherMessage> encrypt({
     required String storeName,
     required CryptoFirebaseStore store,
     required String key,
     required dynamic dataJson,
-    String? hashedKey,
+    String? plainKey,
   }) {
     final encryptionKey = keyManager.remoteEncryptionKey(
       storeName: storeName,
       keyBytes: sodium.crypto.aead.keyBytes,
     );
     try {
-      hashedKey ??= keyHash(storeName: storeName, key: key);
       final nonce = sodium.randombytes.buf(sodium.crypto.aead.nonceBytes);
 
-      final cipherData = sodium.crypto.aead.encryptDetached(
-        message: _PlainCryptoData(
-          key: key,
+      // wrap data with key, if required
+      final dynamic plainData;
+      if (plainKey != null) {
+        plainData = _PlainCryptoData(
+          key: plainKey,
           data: dataJson,
-        ).toBytes(),
-        additionalData: _buildPath(store, hashedKey),
+        ).toJson();
+      } else {
+        plainData = dataJson;
+      }
+
+      final cipherData = sodium.crypto.aead.encryptDetached(
+        message: _jsonToBytes(plainData),
+        additionalData: _buildPath(store, key),
         nonce: nonce,
         key: encryptionKey.value,
       );
 
       return Future.value(
-        MapEntry(
-          hashedKey,
-          CipherMessage(
-            cipherText: cipherData.cipherText,
-            mac: cipherData.mac,
-            nonce: nonce,
-            keyId: encryptionKey.key,
-          ),
+        CipherMessage(
+          cipherText: cipherData.cipherText,
+          mac: cipherData.mac,
+          nonce: nonce,
+          keyId: encryptionKey.key,
         ),
       );
     } finally {
@@ -85,11 +69,12 @@ class SodiumCryptoService implements CryptoService {
   }
 
   @override
-  Future<MapEntry<String, dynamic>> decrypt({
+  Future<DecryptResult> decrypt({
     required String storeName,
     required CryptoFirebaseStore store,
-    required String hashedKey,
+    required String key,
     required CipherMessage data,
+    bool extractKey = false,
   }) async {
     final encryptionKey = await keyManager.remoteEncryptionKeyForId(
       storeName: storeName,
@@ -97,17 +82,27 @@ class SodiumCryptoService implements CryptoService {
       keyBytes: sodium.crypto.aead.keyBytes,
     );
     try {
-      final plainData = _PlainCryptoData.fromBytes(
+      final dynamic plainData = _bytesToJson(
         sodium.crypto.aead.decryptDetached(
           cipherText: data.cipherText,
-          additionalData: _buildPath(store, hashedKey),
+          additionalData: _buildPath(store, key),
           mac: data.mac,
           nonce: data.nonce,
           key: encryptionKey,
         ),
       );
 
-      return MapEntry<String, dynamic>(plainData.key, plainData.data);
+      if (extractKey) {
+        final plainCryptoData = _PlainCryptoData.fromJson(
+          plainData as Map<String, dynamic>,
+        );
+        return DecryptResult.withPlainKey(
+          jsonData: plainCryptoData.data,
+          plainKey: plainCryptoData.key,
+        );
+      } else {
+        return DecryptResult(plainData);
+      }
     } finally {
       encryptionKey.dispose();
     }
@@ -122,6 +117,12 @@ class SodiumCryptoService implements CryptoService {
     final entryUri = Uri(scheme: store.restApi.database, path: entryPath);
     return entryUri.toString().toCharArray().unsignedView();
   }
+
+  Uint8List _jsonToBytes(dynamic jsonData) =>
+      json.encode(jsonData).toCharArray().unsignedView();
+
+  dynamic _bytesToJson(Uint8List bytes) =>
+      json.decode(bytes.signedView().toDartString());
 }
 
 @freezed
@@ -135,11 +136,4 @@ class _PlainCryptoData with _$_PlainCryptoData {
 
   factory _PlainCryptoData.fromJson(Map<String, dynamic> json) =>
       _$_PlainCryptoDataFromJson(json);
-
-  factory _PlainCryptoData.fromBytes(Uint8List bytes) =>
-      _PlainCryptoData.fromJson(
-        json.decode(utf8.decode(bytes)) as Map<String, dynamic>,
-      );
-
-  Uint8List toBytes() => json.encode(this).toCharArray().unsignedView();
 }

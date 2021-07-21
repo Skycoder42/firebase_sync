@@ -16,15 +16,6 @@ abstract class HiveSyncObjectStoreBase<T extends Object>
   BoxBase<SyncObject<T>> get box;
 
   @override
-  int count() => box.length;
-
-  @override
-  Iterable<String> listKeys() => box.keys.cast();
-
-  @override
-  bool contains(String key) => box.containsKey(key);
-
-  @override
   Stream<StoreEvent<SyncObject<T>>> watch() =>
       box.watch().map((event) => StoreEvent(
             key: event.key as String,
@@ -46,11 +37,6 @@ class HiveSyncObjectStore<T extends Object> extends HiveSyncObjectStoreBase<T> {
   SyncObject<T>? get(String key) => box.get(key);
 
   @override
-  void put(String key, SyncObject<T> value) {
-    box.put(key, value);
-  }
-
-  @override
   SyncObject<T>? update(
     String key,
     UpdateFn<SyncObject<T>> onUpdate,
@@ -63,15 +49,21 @@ class HiveSyncObjectStore<T extends Object> extends HiveSyncObjectStoreBase<T> {
         return value;
       },
       delete: () {
+        _triggerDeleteEvent(key, entry);
         box.delete(key);
         return null;
       },
     );
   }
 
-  @override
-  void delete(String key) {
-    box.delete(key);
+  void _triggerDeleteEvent(String key, SyncObject<T>? entry) {
+    // workaround to trigger stream events when items get deleted
+    if (entry?.plainKey != null) {
+      box.put(
+        key,
+        SyncObject(value: null, plainKey: entry?.plainKey),
+      );
+    }
   }
 }
 
@@ -105,9 +97,6 @@ class LazyHiveSyncObjectStore<T extends Object>
       );
 
   @override
-  FutureOr<void> put(String key, SyncObject<T> value) => box.put(key, value);
-
-  @override
   FutureOr<SyncObject<T>?> update(
     String key,
     UpdateFn<SyncObject<T>> onUpdate,
@@ -121,12 +110,24 @@ class LazyHiveSyncObjectStore<T extends Object>
             return value;
           },
           delete: () async {
-            await box.delete(key);
+            await Future.wait([
+              _triggerDeleteEvent(key, entry),
+              box.delete(key),
+            ]);
             return null;
           },
         );
       });
 
-  @override
-  FutureOr<void> delete(String key) => box.delete(key);
+  Future<void> _triggerDeleteEvent(String key, SyncObject<T>? entry) {
+    // workaround to trigger stream events when items get deleted
+    if (entry?.plainKey != null) {
+      return box.put(
+        key,
+        SyncObject(value: null, plainKey: entry?.plainKey),
+      );
+    } else {
+      return Future.value();
+    }
+  }
 }

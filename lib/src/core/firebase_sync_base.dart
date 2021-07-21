@@ -1,11 +1,12 @@
 import 'package:firebase_database_rest/firebase_database_rest.dart';
-import 'package:firebase_sync/src/core/crypto/crypto_service.dart';
-import 'package:firebase_sync/src/core/sync/conflict_resolver.dart';
 import 'package:meta/meta.dart';
 import 'package:tuple/tuple.dart';
 
 import 'crypto/crypto_firebase_store.dart';
+import 'crypto/data_encryptor.dart';
+import 'crypto/key_hasher.dart';
 import 'store/sync_object_store.dart';
+import 'sync/conflict_resolver.dart';
 import 'sync/sync_engine.dart';
 import 'sync/sync_mode.dart';
 import 'sync/sync_node.dart';
@@ -31,13 +32,16 @@ abstract class FirebaseSyncBase {
 
   FirebaseStore<dynamic> get rootStore;
 
-  CryptoService get cryptoService;
+  DataEncryptor get cryptoService;
+
+  KeyHasher get keyHasher;
 
   bool isStoreOpen(String name);
 
   Future<SyncStore<T>> openStore<T extends Object>(
     String name, {
     SyncMode syncMode = SyncMode.sync,
+    bool hashKeys = false,
   });
 
   SyncStore<T> store<T extends Object>(String name);
@@ -72,31 +76,33 @@ abstract class FirebaseSyncBase {
   }
 
   @protected
-  SyncNode<T> createSyncNode<T extends Object>(
-    String name,
-    SyncObjectStore<T> localStore,
-  ) {
+  SyncNode<T> createSyncNode<T extends Object>({
+    required String storeName,
+    required SyncObjectStore<T> localStore,
+    KeyHasher? keyHasher,
+  }) {
     final converterTuple = _getConverter<T>();
     return _syncNodes.putIfAbsent(
-      name,
+      storeName,
       () => SyncNode(
-        storeName: name,
+        storeName: storeName,
         jobScheduler: syncEngine,
-        cryptoService: cryptoService,
+        keyHasher: keyHasher,
+        dataEncryptor: cryptoService,
         jsonConverter: converterTuple.item1,
         conflictResolver: converterTuple.item2,
         localStore: localStore,
         remoteStore: CryptoFirebaseStore(
           parent: rootStore,
-          name: name,
+          name: storeName,
         ),
       ),
     ) as SyncNode<T>;
   }
 
   @protected
-  SyncNode<T> getSyncNode<T extends Object>(String name) {
-    final syncNode = _syncNodes[name];
+  SyncNode<T> getSyncNode<T extends Object>(String storeName) {
+    final syncNode = _syncNodes[storeName];
     if (syncNode == null) {
       throw StateError('createSyncNode must be called before getSyncNode');
     }

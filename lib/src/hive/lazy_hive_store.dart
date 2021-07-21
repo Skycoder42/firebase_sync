@@ -4,6 +4,7 @@ import 'package:hive/hive.dart';
 import 'package:meta/meta.dart';
 import 'package:synchronized/synchronized.dart';
 
+import '../core/crypto/key_hasher.dart';
 import '../core/store/store.dart';
 import '../core/store/store_base.dart';
 import '../core/store/store_event.dart';
@@ -11,83 +12,84 @@ import '../core/store/sync_object.dart';
 
 class LazyHiveStore<T extends Object> implements Store<T> {
   final LazyBox<SyncObject<T>> _rawBox;
+  final StoreBoundKeyHasher? _keyHasher;
 
-  LazyHiveStore(this._rawBox);
+  LazyHiveStore(this._rawBox, this._keyHasher);
 
   @override
   Future<int> count() => _run(
-        () => Stream<dynamic>.fromIterable(_rawBox.keys)
-            .asyncMap((dynamic key) => _rawBox.get(key))
-            .where((value) => value?.value != null)
-            .length,
+        () => _allEntries().length,
       );
 
   @override
   Future<Iterable<String>> listKeys() => _run(
-        () => Stream<dynamic>.fromIterable(_rawBox.keys)
-            .asyncMap(
-              (dynamic key) async => MapEntry<dynamic, SyncObject<T>?>(
-                key,
-                await _rawBox.get(key),
-              ),
-            )
-            .where((entry) => entry.value?.value != null)
-            .map((entry) => entry.key as String)
-            .toList(),
+        () => _allEntries().map((entry) => _selectKey(entry)).toList(),
       );
 
   @override
   Future<Map<String, T>> listEntries() => _run(
         () async => Map.fromEntries(
-          await Stream<dynamic>.fromIterable(_rawBox.keys)
-              .asyncMap(
-                (dynamic key) async => MapEntry(
-                  key as String,
-                  await _rawBox.get(key),
+          await _allEntries()
+              .map(
+                (entry) => MapEntry(
+                  _selectKey(entry),
+                  entry.value.value!,
                 ),
               )
-              .where((entry) => entry.value?.value != null)
-              .map((entry) => MapEntry(entry.key, entry.value!.value!))
               .toList(),
         ),
       );
 
   @override
   Future<bool> contains(String key) => _run(
-        () => _rawBox.get(key).then((value) => value?.value != null),
+        () => _rawBox.get(_realKey(key)).then((value) => value?.value != null),
       );
 
   @override
   Future<T?> get(String key) => _run(
-        () => _rawBox.get(key).then((value) => value?.value),
+        () => _rawBox.get(_realKey(key)).then((value) => value?.value),
       );
 
   @override
   Future<void> put(String key, T value) => _run(() async {
-        final entry = await _rawBox.get(key);
+        final realKey = _realKey(key);
+        final entry = await _rawBox.get(realKey);
         if (entry == null) {
-          await _rawBox.put(key, SyncObject.local(value));
+          await _rawBox.put(
+            realKey,
+            SyncObject.local(
+              value,
+              plainKey: _plainKey(key),
+            ),
+          );
         } else if (entry.value != value) {
-          await _rawBox.put(key, entry.updateLocal(value));
+          await _rawBox.put(realKey, entry.updateLocal(value));
         }
       });
 
   @override
   Future<T?> update(String key, UpdateFn<T> onUpdate) => _run(() async {
-        final entry = await _rawBox.get(key);
+        final realKey = _realKey(key);
+        final entry = await _rawBox.get(realKey);
         return onUpdate(entry?.value).when(
           none: () => entry?.value,
           update: (value) async {
             if (entry == null) {
-              await _rawBox.put(key, SyncObject.local(value));
+              await _rawBox.put(
+                realKey,
+                SyncObject.local(
+                  value,
+                  plainKey: _plainKey(key),
+                ),
+              );
             } else {
-              await _rawBox.put(key, entry.updateLocal(value));
+              await _rawBox.put(realKey, entry.updateLocal(value));
             }
             return value;
           },
           delete: () async {
             if (entry != null) {
-              await _rawBox.put(key, entry.updateLocal(null));
+              await _rawBox.put(realKey, entry.updateLocal(null));
             }
             return null;
           },
@@ -96,17 +98,27 @@ class LazyHiveStore<T extends Object> implements Store<T> {
 
   @override
   Future<void> delete(String key) => _run(() async {
-        final entry = await _rawBox.get(key);
+        final realKey = _realKey(key);
+        final entry = await _rawBox.get(realKey);
         if (entry?.value != null) {
-          await _rawBox.put(key, entry!.updateLocal(null));
+          await _rawBox.put(realKey, entry!.updateLocal(null));
         }
       });
 
   @override
-  Stream<StoreEvent<T>> watch() => _rawBox.watch().map(
-        (event) => StoreEvent(
-          key: event.key as String,
-          value: event.deleted ? null : (event as SyncObject<T>).value,
+  Stream<StoreEvent<T>> watch() => _rawBox
+      .watch()
+      .where((event) => !event.deleted)
+      .map(
+        (event) => MapEntry(
+          event.key as String,
+          event.value as SyncObject<T>,
+        ),
+      )
+      .map(
+        (entry) => StoreEvent(
+          key: _selectKey(entry),
+          value: entry.value.value,
         ),
       );
 
@@ -135,15 +147,31 @@ class LazyHiveStore<T extends Object> implements Store<T> {
   Future<void> deleteFromDisk() => _rawBox.deleteFromDisk();
 
   Future<Iterable<T>> values() => _run(
-        () => Stream<dynamic>.fromIterable(_rawBox.keys)
-            .asyncMap((dynamic key) => _rawBox.get(key))
-            .where((value) => value?.value != null)
-            .map((value) => value!.value!)
-            .toList(),
+        () => _allEntries().map((entry) => entry.value.value!).toList(),
       );
 
   Future<TR> _run<TR>(FutureOr<TR> Function() run) =>
       _rawBox.lock.synchronized(run);
+
+  bool get _hashKeys => _keyHasher != null;
+
+  String _realKey(String key) => _hashKeys ? _keyHasher!.hashKey(key) : key;
+
+  String? _plainKey(String key) => _hashKeys ? key : null;
+
+  String _selectKey(MapEntry<String, SyncObject<T>> entry) =>
+      _hashKeys ? entry.value.plainKey! : entry.key;
+
+  Stream<MapEntry<String, SyncObject<T>>> _allEntries() =>
+      Stream<dynamic>.fromIterable(_rawBox.keys)
+          .asyncMap(
+            (dynamic key) async => MapEntry(
+              key as String,
+              await _rawBox.get(key),
+            ),
+          )
+          .where((entry) => entry.value?.value != null)
+          .cast<MapEntry<String, SyncObject<T>>>();
 }
 
 @internal

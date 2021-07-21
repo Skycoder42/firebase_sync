@@ -8,7 +8,6 @@ import 'download_job.dart';
 
 class UploadJob<T extends Object> extends SyncJob {
   final SyncNode<T> syncNode;
-  final String key;
   final bool multipass;
 
   UploadJob({
@@ -21,10 +20,7 @@ class UploadJob<T extends Object> extends SyncJob {
   String get storeName => syncNode.storeName;
 
   @override
-  late final String hashedKey = syncNode.cryptoService.keyHash(
-    storeName: storeName,
-    key: key,
-  );
+  final String key;
 
   @override
   Future<bool> execute() async {
@@ -46,19 +42,19 @@ class UploadJob<T extends Object> extends SyncJob {
   Future<void> _uploadModified(SyncObject<T> localEntry) async {
     try {
       // encrypt
-      final cipher = await syncNode.cryptoService.encrypt(
+      final cipher = await syncNode.dataEncryptor.encrypt(
         storeName: syncNode.storeName,
         store: syncNode.remoteStore,
         key: key,
-        hashedKey: hashedKey,
         dataJson: syncNode.jsonConverter.dataToJson(localEntry.value!),
+        plainKey: syncNode.hashKeys ? localEntry.plainKey : null,
       );
 
       // upload
       final eTagReceiver = ETagReceiver();
       await syncNode.remoteStore.write(
-        cipher.key,
-        cipher.value,
+        key,
+        cipher,
         eTag: localEntry.eTag,
         eTagReceiver: eTagReceiver,
       );
@@ -96,7 +92,7 @@ class UploadJob<T extends Object> extends SyncJob {
         // ignore: unawaited_futures
         syncNode.jobScheduler.addJob(DownloadJob(
           syncNode: syncNode,
-          hashedKey: hashedKey,
+          key: key,
         ));
       } else {
         rethrow;
@@ -109,7 +105,7 @@ class UploadJob<T extends Object> extends SyncJob {
       // upload
       final eTagReceiver = ETagReceiver();
       await syncNode.remoteStore.delete(
-        hashedKey,
+        key,
         eTag: localEntry.eTag,
         eTagReceiver: eTagReceiver,
       );
@@ -144,7 +140,7 @@ class UploadJob<T extends Object> extends SyncJob {
         // ignore: unawaited_futures
         syncNode.jobScheduler.addJob(DownloadJob(
           syncNode: syncNode,
-          hashedKey: hashedKey,
+          key: key,
         ));
       } else {
         rethrow;

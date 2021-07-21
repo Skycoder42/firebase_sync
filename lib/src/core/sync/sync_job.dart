@@ -15,7 +15,7 @@ abstract class SyncJob {
   Future<SyncJobResult> get result => _completer.future;
 
   String get storeName;
-  String get hashedKey;
+  String get key;
 
   @nonVirtual
   Future<void> call() => Future(() async {
@@ -32,7 +32,7 @@ abstract class SyncJob {
 
   @nonVirtual
   bool checkConflict(SyncJob other) =>
-      storeName == other.storeName && hashedKey == other.hashedKey;
+      storeName == other.storeName && key == other.key;
 
   @protected
   Future<bool> execute();

@@ -18,7 +18,7 @@ class HiveSyncStore<T extends Object> extends HiveStore<T>
   HiveSyncStore({
     required Box<SyncObject<T>> rawBox,
     required this.syncNode,
-  }) : super(rawBox);
+  }) : super(rawBox, syncNode.boundKeyHasher);
 
   @override
   Future<void> close() async {
@@ -37,7 +37,7 @@ class LazyHiveSyncStore<T extends Object> extends LazyHiveStore<T>
   LazyHiveSyncStore({
     required LazyBox<SyncObject<T>> rawBox,
     required this.syncNode,
-  }) : super(rawBox);
+  }) : super(rawBox, syncNode.boundKeyHasher);
 
   @override
   Future<void> close() async {

@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hive/hive.dart';
 
+import '../core/crypto/key_hasher.dart';
 import '../core/store/store.dart';
 import '../core/store/store_base.dart';
 import '../core/store/store_event.dart';
@@ -8,64 +9,73 @@ import '../core/store/sync_object.dart';
 
 class HiveStore<T extends Object> implements Store<T> {
   final Box<SyncObject<T>> _rawBox;
+  final StoreBoundKeyHasher? _keyHasher;
 
-  HiveStore(this._rawBox);
-
-  @override
-  int count() => _rawBox
-      .toMap()
-      .entries
-      .where((entry) => entry.value.value != null)
-      .length;
+  HiveStore(this._rawBox, [this._keyHasher]);
 
   @override
-  Iterable<String> listKeys() => _rawBox
-      .toMap()
-      .entries
-      .where((entry) => entry.value.value != null)
-      .map((entry) => entry.key as String);
+  int count() => _allEntries().length;
+
+  @override
+  Iterable<String> listKeys() =>
+      _allEntries().map((entry) => _selectKey(entry));
 
   @override
   Map<String, T> listEntries() => Map.fromEntries(
-        _rawBox
-            .toMap()
-            .entries
-            .where((entry) => entry.value.value != null)
-            .map((entry) => MapEntry(entry.key as String, entry.value.value!)),
+        _allEntries().map(
+          (entry) => MapEntry(
+            _selectKey(entry),
+            entry.value.value!,
+          ),
+        ),
       );
 
   @override
-  bool contains(String key) => _rawBox.get(key)?.value != null;
+  bool contains(String key) => _rawBox.get(_realKey(key))?.value != null;
 
   @override
-  T? get(String key) => _rawBox.get(key)?.value;
+  T? get(String key) => _rawBox.get(_realKey(key))?.value;
 
   @override
   void put(String key, T value) {
-    final entry = _rawBox.get(key);
+    final realKey = _realKey(key);
+    final entry = _rawBox.get(realKey);
     if (entry == null) {
-      _rawBox.put(key, SyncObject.local(value));
+      _rawBox.put(
+        realKey,
+        SyncObject.local(
+          value,
+          plainKey: _plainKey(key),
+        ),
+      );
     } else if (entry.value != value) {
-      _rawBox.put(key, entry.updateLocal(value));
+      _rawBox.put(realKey, entry.updateLocal(value));
     }
   }
 
   @override
   T? update(String key, UpdateFn<T> onUpdate) {
-    final entry = _rawBox.get(key);
+    final realKey = _realKey(key);
+    final entry = _rawBox.get(realKey);
     return onUpdate(entry?.value).when(
       none: () => entry?.value,
       update: (value) {
         if (entry == null) {
-          _rawBox.put(key, SyncObject.local(value));
+          _rawBox.put(
+            realKey,
+            SyncObject.local(
+              value,
+              plainKey: _plainKey(key),
+            ),
+          );
         } else {
-          _rawBox.put(key, entry.updateLocal(value));
+          _rawBox.put(realKey, entry.updateLocal(value));
         }
         return value;
       },
       delete: () {
         if (entry != null) {
-          _rawBox.put(key, entry.updateLocal(null));
+          _rawBox.put(realKey, entry.updateLocal(null));
         }
         return null;
       },
@@ -74,17 +84,27 @@ class HiveStore<T extends Object> implements Store<T> {
 
   @override
   void delete(String key) {
-    final entry = _rawBox.get(key);
+    final realKey = _realKey(key);
+    final entry = _rawBox.get(realKey);
     if (entry?.value != null) {
-      _rawBox.put(key, entry!.updateLocal(null));
+      _rawBox.put(realKey, entry!.updateLocal(null));
     }
   }
 
   @override
-  Stream<StoreEvent<T>> watch() => _rawBox.watch().map(
-        (event) => StoreEvent(
-          key: event.key as String,
-          value: event.deleted ? null : (event as SyncObject<T>).value,
+  Stream<StoreEvent<T>> watch() => _rawBox
+      .watch()
+      .where((event) => !event.deleted)
+      .map(
+        (event) => MapEntry(
+          event.key as String,
+          event.value as SyncObject<T>,
+        ),
+      )
+      .map(
+        (entry) => StoreEvent(
+          key: _selectKey(entry),
+          value: entry.value.value,
         ),
       );
 
@@ -121,7 +141,25 @@ class HiveStore<T extends Object> implements Store<T> {
     String? endKey,
   }) =>
       _rawBox
-          .valuesBetween(startKey: startKey, endKey: endKey)
+          .valuesBetween(
+            startKey: startKey != null ? _realKey(startKey) : null,
+            endKey: endKey != null ? _realKey(endKey) : null,
+          )
           .where((value) => value.value != null)
           .map((value) => value.value!);
+
+  bool get _hashKeys => _keyHasher != null;
+
+  String _realKey(String key) => _hashKeys ? _keyHasher!.hashKey(key) : key;
+
+  String? _plainKey(String key) => _hashKeys ? key : null;
+
+  String _selectKey(MapEntry<dynamic, SyncObject<T>> entry) =>
+      _hashKeys ? entry.value.plainKey! : entry.key as String;
+
+  Iterable<MapEntry<String, SyncObject<T>>> _allEntries() => _rawBox
+      .toMap()
+      .entries
+      .where((entry) => entry.value.value != null)
+      .cast();
 }

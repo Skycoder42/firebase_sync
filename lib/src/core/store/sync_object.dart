@@ -12,16 +12,24 @@ class SyncObject<T extends Object> with _$SyncObject<T> {
     required T? value,
     @Default(0) int changeState,
     @Default(ApiConstants.nullETag) String eTag,
+    String? plainKey,
   }) = _SyncObject<T>;
 
-  factory SyncObject.local(T value) => SyncObject(
+  factory SyncObject.local(T value, {String? plainKey}) => SyncObject(
         value: value,
         changeState: 1,
+        plainKey: plainKey,
       );
 
-  factory SyncObject.remote(T value, String eTag) => SyncObject(
+  factory SyncObject.remote(
+    T value,
+    String eTag, {
+    String? plainKey,
+  }) =>
+      SyncObject(
         value: value,
         eTag: eTag,
+        plainKey: plainKey,
       );
 
   bool get locallyModified => changeState > 0;

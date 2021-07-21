@@ -12,11 +12,11 @@ class DownloadJob<T extends Object> extends SyncJob {
   final bool conflictsTriggerUpload;
 
   @override
-  final String hashedKey;
+  final String key;
 
   DownloadJob({
     required this.syncNode,
-    required this.hashedKey,
+    required this.key,
     this.conflictsTriggerUpload = false,
   });
 
@@ -28,13 +28,14 @@ class DownloadJob<T extends Object> extends SyncJob {
     // download remote entry
     final eTagReceiver = ETagReceiver();
     final remoteCipher = await syncNode.remoteStore.read(
-      hashedKey,
+      key,
       eTagReceiver: eTagReceiver,
     );
 
     if (remoteCipher != null) {
       await _updateLocal(remoteCipher, eTagReceiver.eTag!);
     } else {
+      assert(eTagReceiver.eTag! == ApiConstants.nullETag);
       await _deleteLocal();
     }
 
@@ -43,20 +44,25 @@ class DownloadJob<T extends Object> extends SyncJob {
 
   Future<void> _updateLocal(CipherMessage remoteCipher, String eTag) async {
     // decrypt remote data
-    final plainInfo = await syncNode.cryptoService.decrypt(
+    final plainInfo = await syncNode.dataEncryptor.decrypt(
       storeName: syncNode.storeName,
       store: syncNode.remoteStore,
-      hashedKey: hashedKey,
+      key: key,
       data: remoteCipher,
+      extractKey: syncNode.hashKeys,
     );
-    final plainData = syncNode.jsonConverter.dataFromJson(plainInfo.value);
+    final plainData = syncNode.jsonConverter.dataFromJson(plainInfo.jsonData);
 
     // update locally
     final updatedEntry = await syncNode.localStore.update(
-      plainInfo.key,
+      key,
       (localData) {
         if (localData == null) {
-          return UpdateAction.update(SyncObject.remote(plainData, eTag));
+          return UpdateAction.update(SyncObject.remote(
+            plainData,
+            eTag,
+            plainKey: syncNode.hashKeys ? plainInfo.plainKey : null,
+          ));
         }
 
         if (!localData.locallyModified) {
@@ -65,7 +71,7 @@ class DownloadJob<T extends Object> extends SyncJob {
 
         return syncNode.conflictResolver
             .resolve(
-              plainInfo.key,
+              syncNode.hashKeys ? localData.plainKey! : key,
               local: localData.value,
               remote: plainData,
             )
@@ -74,7 +80,11 @@ class DownloadJob<T extends Object> extends SyncJob {
                 localData.updateEtag(eTag),
               ),
               remote: () => UpdateAction.update(
-                SyncObject.remote(plainData, eTag),
+                SyncObject.remote(
+                  plainData,
+                  eTag,
+                  plainKey: syncNode.hashKeys ? plainInfo.plainKey : null,
+                ),
               ),
               delete: () => const UpdateAction.delete(),
               update: (updated) => UpdateAction.update(
@@ -89,14 +99,53 @@ class DownloadJob<T extends Object> extends SyncJob {
       // ignore: unawaited_futures
       syncNode.jobScheduler.addJob(UploadJob(
         syncNode: syncNode,
-        key: plainInfo.key,
+        key: key,
         multipass: false,
       ));
     }
   }
 
-  Future<void> _deleteLocal() {
-    // TODO its impossible with hashed keys
-    throw UnimplementedError();
+  Future<void> _deleteLocal() async {
+    // update locally
+    final updatedEntry = await syncNode.localStore.update(
+      key,
+      (localData) {
+        if (localData == null) {
+          return const UpdateAction.none();
+        }
+
+        if (!localData.locallyModified) {
+          return const UpdateAction.delete();
+          // TODO delete does not trigger stream events correctly
+        }
+
+        return syncNode.conflictResolver
+            .resolve(
+              syncNode.hashKeys ? localData.plainKey! : key,
+              local: localData.value,
+              remote: null,
+            )
+            .when(
+              local: () => UpdateAction.update(
+                localData.updateEtag(ApiConstants.nullETag),
+              ),
+              remote: () => const UpdateAction.delete(),
+              delete: () => const UpdateAction.delete(),
+              update: (updated) => UpdateAction.update(
+                localData.updateLocal(updated, eTag: ApiConstants.nullETag),
+              ),
+            );
+      },
+    );
+
+    // trigger upload if locally changed
+    if (conflictsTriggerUpload && (updatedEntry?.locallyModified ?? false)) {
+      // ignore: unawaited_futures
+      syncNode.jobScheduler.addJob(UploadJob(
+        syncNode: syncNode,
+        key: key,
+        multipass: false,
+      ));
+    }
   }
 }
