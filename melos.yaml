@@ -13,10 +13,55 @@ scripts:
   build:watch:
     run: dart run build_runner watch
 
+  test:
+    run: dart run tool/test_runner.dart
+
+  test:coverage:
+    run: dart run tool/test_runner.dart -c
+
+  test:coverage:open:
+    run: dart run tool/test_runner.dart -co
+
+  test:unit:
+    run: dart run tool/test_runner.dart -munit
+
+  test:unit:coverage:
+    run: dart run tool/test_runner.dart -munit -c
+
+  test:unit:coverage:open:
+    run: dart run tool/test_runner.dart -munit -co
+
+  test:unit:vm:
+    run: dart run tool/test_runner.dart -munit -pvm
+
+  test:unit:vm:coverage:
+    run: dart run tool/test_runner.dart -munit -pvm -c
+
+  test:unit:vm:coverage:open:
+    run: dart run tool/test_runner.dart -munit -pvm -co
+
+  test:unit:js:
+    run: dart run tool/test_runner.dart -munit -pjs
+
+  test:unit:js:coverage:
+    run: dart run tool/test_runner.dart -munit -pjs -c
+
+  test:unit:js:coverage:open:
+    run: dart run tool/test_runner.dart -munit -pjs -co
+
+  test:integration:
+    run: dart run tool/test_runner.dart -mintegration
+
+  test:integration:vm:
+    run: dart run tool/test_runner.dart -mintegration -pvm
+
+  test:integration:js:
+    run: dart run tool/test_runner.dart -mintegration -pjs
+
   pre-commit:init:
     run: >-
-      bash -c "echo -e 
-      '#!/bin/sh\nexec dart pub global run melos run pre-commit:run' 
+      bash -c "echo -e
+      '#!/bin/sh\nexec dart pub global run melos run pre-commit:run'
       > .git/hooks/pre-commit && chmod a+x .git/hooks/pre-commit"
     description: Setup pre commit hooks
 

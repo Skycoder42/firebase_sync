@@ -3,7 +3,7 @@ import 'dart:async';
 import 'store_base.dart';
 
 abstract class Store<T extends Object> implements StoreBase<T> {
-  const Store._();
+  const Store._(); // coverage:ignore-line
 
   FutureOr<int> count();
 

@@ -1,5 +1,5 @@
 abstract class KeyHasher {
-  const KeyHasher._();
+  const KeyHasher._(); // coverage:ignore-line
 
   String hashKey({
     required String storeName,

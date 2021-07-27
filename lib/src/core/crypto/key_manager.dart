@@ -1,4 +1,6 @@
 abstract class KeyManager<TKey extends Object> {
+  const KeyManager._(); // coverage:ignore-line
+
   TKey localEncryptionKey({
     required String storeName,
     required int keyBytes,

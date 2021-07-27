@@ -61,7 +61,7 @@ class HiveSyncObjectStore<T extends Object> extends HiveSyncObjectStoreBase<T> {
     if (entry?.plainKey != null) {
       box.put(
         key,
-        SyncObject(value: null, plainKey: entry?.plainKey),
+        SyncObject.deleted(plainKey: entry?.plainKey),
       );
     }
   }
@@ -124,7 +124,7 @@ class LazyHiveSyncObjectStore<T extends Object>
     if (entry?.plainKey != null) {
       return box.put(
         key,
-        SyncObject(value: null, plainKey: entry?.plainKey),
+        SyncObject.deleted(plainKey: entry?.plainKey),
       );
     } else {
       return Future.value();

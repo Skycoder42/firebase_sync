@@ -34,7 +34,7 @@ class SyncEngine implements JobScheduler {
     }
   }
 
-  bool get isRunning => _syncZone != null;
+  bool get running => _syncZone != null;
 
   void start() {
     _stopFuture = null;
@@ -126,7 +126,6 @@ class SyncEngine implements JobScheduler {
       return;
     }
 
-    // TODO remove runGuarded here?
     _syncZone!.parent!.runGuarded(() {
       while (!_paused && _activeJobs.length < _parallelJobs) {
         final job = _nextJob();

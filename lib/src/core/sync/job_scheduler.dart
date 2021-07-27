@@ -3,13 +3,13 @@ import 'dart:async';
 import 'sync_job.dart';
 
 abstract class StreamCancallationToken {
-  const StreamCancallationToken._();
+  const StreamCancallationToken._(); // coverage:ignore-line
 
   Future<void> cancel();
 }
 
 abstract class JobScheduler {
-  const JobScheduler._();
+  const JobScheduler._(); // coverage:ignore-line
 
   Future<SyncJobResult> addJob(SyncJob job);
 

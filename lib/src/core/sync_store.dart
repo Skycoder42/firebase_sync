@@ -1,10 +1,9 @@
-import 'package:firebase_sync/src/core/sync/sync_controller.dart';
-
 import 'store/store.dart';
+import 'sync/sync_controller.dart';
 
 abstract class SyncStore<T extends Object>
     implements Store<T>, SyncController<T> {
-  const SyncStore._();
+  const SyncStore._(); // coverage:ignore-line
 
   Future<void> close();
 }

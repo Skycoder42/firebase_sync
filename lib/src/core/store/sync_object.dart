@@ -5,8 +5,9 @@ part 'sync_object.freezed.dart';
 
 @freezed
 class SyncObject<T extends Object> with _$SyncObject<T> {
-  const SyncObject._();
+  const SyncObject._(); // coverage:ignore-line
 
+  @visibleForTesting
   @Assert('changeState >= 0')
   const factory SyncObject({
     required T? value,
@@ -15,7 +16,11 @@ class SyncObject<T extends Object> with _$SyncObject<T> {
     String? plainKey,
   }) = _SyncObject<T>;
 
-  factory SyncObject.local(T value, {String? plainKey}) => SyncObject(
+  factory SyncObject.local(
+    T value, {
+    String? plainKey,
+  }) =>
+      SyncObject(
         value: value,
         changeState: 1,
         plainKey: plainKey,
@@ -29,6 +34,14 @@ class SyncObject<T extends Object> with _$SyncObject<T> {
       SyncObject(
         value: value,
         eTag: eTag,
+        plainKey: plainKey,
+      );
+
+  factory SyncObject.deleted({
+    String? plainKey,
+  }) =>
+      SyncObject(
+        value: null,
         plainKey: plainKey,
       );
 
@@ -54,7 +67,9 @@ class SyncObject<T extends Object> with _$SyncObject<T> {
         eTag: eTag,
       );
 
+  // coverage:ignore-start
   @override
   @visibleForTesting
   $SyncObjectCopyWith<T, SyncObject<T>> get copyWith => super.copyWith;
+  // coverage:ignore-end
 }

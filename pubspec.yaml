@@ -19,6 +19,7 @@ dependencies:
   tuple: ^2.0.0
 
 dev_dependencies:
+  args: ^2.1.1
   build_runner: ^2.0.6
   coverage: ^1.0.3
   dart_pre_commit: ^2.3.2

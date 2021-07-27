@@ -1,8 +1,9 @@
 import 'package:firebase_database_rest/firebase_database_rest.dart';
-import 'package:firebase_sync/src/core/sync/sync_mode.dart';
+
+import 'sync_mode.dart';
 
 abstract class SyncController<T extends Object> {
-  const SyncController._();
+  const SyncController._(); // coverage:ignore-line
 
   SyncMode get syncMode;
 

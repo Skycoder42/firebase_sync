@@ -6,7 +6,7 @@ import 'update_action.dart';
 typedef UpdateFn<T extends Object> = UpdateAction<T> Function(T? oldValue);
 
 abstract class StoreBase<T extends Object> {
-  const StoreBase._();
+  const StoreBase._(); // coverage:ignore-line
 
   FutureOr<Map<String, T>> listEntries();
 
