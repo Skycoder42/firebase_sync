@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:meta/meta.dart';
 
@@ -10,7 +12,10 @@ part 'data_encryptor.freezed.dart';
 class DecryptResult with _$DecryptResult {
   const DecryptResult._();
 
-  const factory DecryptResult(dynamic jsonData) = _Result;
+  const factory DecryptResult({
+    required dynamic jsonData,
+  }) = _Result;
+
   const factory DecryptResult.withPlainKey({
     required dynamic jsonData,
     required String plainKey,

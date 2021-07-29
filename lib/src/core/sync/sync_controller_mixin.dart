@@ -1,6 +1,7 @@
 import 'package:firebase_database_rest/firebase_database_rest.dart';
 import 'package:meta/meta.dart';
 
+import '../store/sync_object.dart';
 import 'job_scheduler.dart';
 import 'jobs/download_job.dart';
 import 'jobs/upload_job.dart';
@@ -99,7 +100,7 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
     _uploadToken ??= syncNode.jobScheduler.addJobStream(
       syncNode.localStore
           .watch()
-          .where((event) => event.value?.locallyModified ?? false)
+          .where((event) => event.value.locallyModified)
           .map(
             (event) => UploadJob(
               syncNode: syncNode,

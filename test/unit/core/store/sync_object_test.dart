@@ -140,7 +140,7 @@ void main() {
       );
 
       const newEtag = 'updated';
-      final result = sut.updateEtag(newEtag);
+      final result = sut.updateRemoteTag(newEtag);
       expect(result.value, sut.value);
       expect(result.changeState, sut.changeState);
       expect(result.eTag, newEtag);

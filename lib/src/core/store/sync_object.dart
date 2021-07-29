@@ -1,18 +1,32 @@
-import 'package:firebase_database_rest/firebase_database_rest.dart';
+import 'dart:typed_data';
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'sync_object.freezed.dart';
 
 @freezed
 class SyncObject<T extends Object> with _$SyncObject<T> {
+  static const changeStateMax = 0xFFFFFFFF;
+  static const remoteTagMin = 32;
+  static const remoteTagMax = 0xFF;
+  static final noRemoteDataTag = Uint8List(0); // TODO optional getter extension
+
   const SyncObject._(); // coverage:ignore-line
 
-  @visibleForTesting
-  @Assert('changeState >= 0')
+  @Assert(
+    'changeState >= 0 && changeState <= SyncObject.changeStateMax',
+    'changeState must be a valid uint32 value',
+  )
+  @Assert(
+    'remoteTag.isEmpty || '
+        '(remoteTag.length >= SyncObject.remoteTagMin && '
+        'remoteTag.length <= SyncObject.remoteTagMax)',
+    'remoteTag must be either noRemoteDataTag or have at least 32 bytes',
+  )
   const factory SyncObject({
     required T? value,
-    @Default(0) int changeState,
-    @Default(ApiConstants.nullETag) String eTag,
+    required int changeState,
+    required Uint8List remoteTag,
     String? plainKey,
   }) = _SyncObject<T>;
 
@@ -23,17 +37,19 @@ class SyncObject<T extends Object> with _$SyncObject<T> {
       SyncObject(
         value: value,
         changeState: 1,
+        remoteTag: noRemoteDataTag,
         plainKey: plainKey,
       );
 
   factory SyncObject.remote(
     T value,
-    String eTag, {
+    Uint8List remoteTag, {
     String? plainKey,
   }) =>
       SyncObject(
         value: value,
-        eTag: eTag,
+        changeState: 0,
+        remoteTag: remoteTag,
         plainKey: plainKey,
       );
 
@@ -42,29 +58,30 @@ class SyncObject<T extends Object> with _$SyncObject<T> {
   }) =>
       SyncObject(
         value: null,
+        changeState: 0,
+        remoteTag: noRemoteDataTag,
         plainKey: plainKey,
       );
 
-  bool get locallyModified => changeState > 0;
-
-  SyncObject<T> updateLocal(T? value, {String? eTag}) => copyWith(
+  SyncObject<T> updateLocal(T? value, {Uint8List? remoteTag}) => copyWith(
         value: value,
-        changeState: changeState + 1,
-        eTag: eTag ?? this.eTag,
+        changeState: _safeIncrement(changeState),
+        remoteTag: remoteTag ?? this.remoteTag,
       );
 
-  SyncObject<T> updateRemote(T? value, String eTag) => copyWith(
+  SyncObject<T> updateRemote(T? value, Uint8List remoteTag) => copyWith(
         value: value,
-        eTag: eTag,
-      );
-
-  SyncObject<T> updateUploaded(String eTag) => copyWith(
+        remoteTag: remoteTag,
         changeState: 0,
-        eTag: eTag,
       );
 
-  SyncObject<T> updateEtag(String eTag) => copyWith(
-        eTag: eTag,
+  SyncObject<T> updateUploaded(Uint8List remoteTag) => copyWith(
+        changeState: 0,
+        remoteTag: remoteTag,
+      );
+
+  SyncObject<T> updateRemoteTag(Uint8List eTag) => copyWith(
+        remoteTag: remoteTag,
       );
 
   // coverage:ignore-start
@@ -72,4 +89,15 @@ class SyncObject<T extends Object> with _$SyncObject<T> {
   @visibleForTesting
   $SyncObjectCopyWith<T, SyncObject<T>> get copyWith => super.copyWith;
   // coverage:ignore-end
+
+  int _safeIncrement(int value) => value >= changeStateMax ? 0 : value + 1;
+}
+
+extension SyncObjectX on SyncObject? {
+  bool get locallyModified => (this?.changeState ?? 0) > 0;
+
+  bool get remotelyModified => this?.remoteTag.isNotEmpty ?? false;
+
+  Uint8List get remoteTagOrDefault =>
+      this?.remoteTag ?? SyncObject.noRemoteDataTag;
 }

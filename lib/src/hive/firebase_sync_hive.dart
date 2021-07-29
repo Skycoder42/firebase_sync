@@ -18,6 +18,7 @@ import '../sodium/sodium_key_manager.dart';
 import 'crypto/sodium_hive_cipher.dart';
 import 'hive_sync_object_store.dart';
 import 'hive_sync_store.dart';
+import 'sync_object_adapter.dart';
 
 class FirebaseSyncHive extends FirebaseSyncBase {
   final HiveInterface hive;
@@ -60,15 +61,23 @@ class FirebaseSyncHive extends FirebaseSyncBase {
   bool isStoreOpen(String name) => hive.isBoxOpen(name);
 
   @override
-  Future<HiveSyncStore<T>> openStore<T extends Object>(
-    String name, {
+  Future<HiveSyncStore<T>> openStore<T extends Object>({
+    required String name,
+    required JsonConverter<T> jsonConverter,
+    required covariant TypeAdapter<T> storageConverter,
     SyncMode syncMode = SyncMode.sync, // TODO use
+    ConflictResolver<T>? conflictResolver,
     bool hashKeys = false,
     KeyComparator keyComparator = defaultKeyComparator,
     CompactionStrategy compactionStrategy = defaultCompactionStrategy,
     bool crashRecovery = true,
     String? path,
   }) async {
+    _registerTypeAdapter(
+      hiveAdapter: storageConverter,
+      hashKeys: hashKeys,
+    );
+
     final box = await hive.openBox<SyncObject<T>>(
       _boxName(name, hashed: hashKeys),
       encryptionCipher: await _createCipher(name),
@@ -77,25 +86,36 @@ class FirebaseSyncHive extends FirebaseSyncBase {
       crashRecovery: crashRecovery,
       path: path,
     );
+
     return HiveSyncStore(
       rawBox: box,
       syncNode: createSyncNode(
         storeName: name,
         localStore: HiveSyncObjectStore(box),
+        jsonConverter: jsonConverter,
         keyHasher: hashKeys ? keyHasher : null,
+        conflictResolver: conflictResolver,
       ),
     );
   }
 
-  Future<LazyHiveSyncStore<T>> openLazyStore<T extends Object>(
-    String name, {
+  Future<LazyHiveSyncStore<T>> openLazyStore<T extends Object>({
+    required String name,
+    required JsonConverter<T> jsonConverter,
+    required covariant TypeAdapter<T> storageConverter,
     SyncMode syncMode = SyncMode.sync, // TODO use
+    ConflictResolver<T>? conflictResolver,
     bool hashKeys = false,
     KeyComparator keyComparator = defaultKeyComparator,
     CompactionStrategy compactionStrategy = defaultCompactionStrategy,
     bool crashRecovery = true,
     String? path,
   }) async {
+    _registerTypeAdapter(
+      hiveAdapter: storageConverter,
+      hashKeys: hashKeys,
+    );
+
     final box = await hive.openLazyBox<SyncObject<T>>(
       _boxName(name, hashed: hashKeys),
       encryptionCipher: await _createCipher(name),
@@ -104,12 +124,15 @@ class FirebaseSyncHive extends FirebaseSyncBase {
       crashRecovery: crashRecovery,
       path: path,
     );
+
     return LazyHiveSyncStore(
       rawBox: box,
       syncNode: createSyncNode(
         storeName: name,
         localStore: LazyHiveSyncObjectStore(box),
+        jsonConverter: jsonConverter,
         keyHasher: hashKeys ? keyHasher : null,
+        conflictResolver: conflictResolver,
       ),
     );
   }
@@ -137,24 +160,16 @@ class FirebaseSyncHive extends FirebaseSyncBase {
     await hive.close();
   }
 
-  @override
-  void registerConverter<T extends Object>({
-    required JsonConverter<T> converter,
-    ConflictResolver<T>? conflictResolver,
-    bool override = false,
-    TypeAdapter<T>? hiveAdapter,
+  void _registerTypeAdapter<T extends Object>({
+    required TypeAdapter<T> hiveAdapter,
+    bool hashKeys = false,
   }) {
-    super.registerConverter(
-      converter: converter,
-      conflictResolver: conflictResolver,
-      override: override,
+    hive.registerAdapter(
+      SyncObjectAdapter<T>(
+        contentAdapter: hiveAdapter,
+        writePlainKeys: hashKeys,
+      ),
     );
-    if (hiveAdapter != null) {
-      hive.registerAdapter(
-        hiveAdapter,
-        override: override,
-      );
-    }
   }
 
   String _boxName(String storeName, {required bool hashed}) => hashed

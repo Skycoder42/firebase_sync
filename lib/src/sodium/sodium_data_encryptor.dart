@@ -36,6 +36,7 @@ class SodiumDataEncryptor implements DataEncryptor {
     );
     try {
       final nonce = sodium.randombytes.buf(sodium.crypto.aead.nonceBytes);
+      final remoteTag = sodium.randombytes.buf(CipherMessage.remoteTagSize);
 
       // wrap data with key, if required
       final dynamic plainData;
@@ -50,7 +51,11 @@ class SodiumDataEncryptor implements DataEncryptor {
 
       final cipherData = sodium.crypto.aead.encryptDetached(
         message: _jsonToBytes(plainData),
-        additionalData: _buildPath(store, key),
+        additionalData: _buildPath(
+          store: store,
+          key: key,
+          remoteTag: remoteTag,
+        ),
         nonce: nonce,
         key: encryptionKey.value,
       );
@@ -60,6 +65,7 @@ class SodiumDataEncryptor implements DataEncryptor {
           cipherText: cipherData.cipherText,
           mac: cipherData.mac,
           nonce: nonce,
+          remoteTag: remoteTag,
           keyId: encryptionKey.key,
         ),
       );
@@ -85,7 +91,11 @@ class SodiumDataEncryptor implements DataEncryptor {
       final dynamic plainData = _bytesToJson(
         sodium.crypto.aead.decryptDetached(
           cipherText: data.cipherText,
-          additionalData: _buildPath(store, key),
+          additionalData: _buildPath(
+            store: store,
+            key: key,
+            remoteTag: data.remoteTag,
+          ),
           mac: data.mac,
           nonce: data.nonce,
           key: encryptionKey,
@@ -101,20 +111,30 @@ class SodiumDataEncryptor implements DataEncryptor {
           plainKey: plainCryptoData.key,
         );
       } else {
-        return DecryptResult(plainData);
+        return DecryptResult(
+          jsonData: plainData,
+        );
       }
     } finally {
       encryptionKey.dispose();
     }
   }
 
-  Uint8List _buildPath(CryptoFirebaseStore store, String keyHash) {
+  Uint8List _buildPath({
+    required CryptoFirebaseStore store,
+    required String key,
+    required Uint8List remoteTag,
+  }) {
     final entryPath = posix.canonicalize(posix.join(
       posix.separator,
       store.path,
-      keyHash,
+      key,
     ));
-    final entryUri = Uri(scheme: store.restApi.database, path: entryPath);
+    final entryUri = Uri(
+      scheme: store.restApi.database,
+      path: entryPath,
+      fragment: base64Url.encode(remoteTag),
+    );
     return entryUri.toString().toCharArray().unsignedView();
   }
 
