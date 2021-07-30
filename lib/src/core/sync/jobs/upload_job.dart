@@ -30,7 +30,7 @@ class UploadJob<T extends Object> extends SyncJob
     // check if entry needs to be uploaded
     var localEntry = await syncNode.localStore.get(key);
     if (!localEntry.locallyModified) {
-      return const SyncJobExecutionResult(false);
+      return const SyncJobExecutionResult.noop();
     }
 
     // begin transaction
@@ -42,7 +42,7 @@ class UploadJob<T extends Object> extends SyncJob
     if (localEntry!.remoteTag != remoteTag) {
       localEntry = await _resolveConflict(transaction);
       if (!localEntry.locallyModified) {
-        return const SyncJobExecutionResult(true);
+        return const SyncJobExecutionResult.success();
       }
     }
 
@@ -60,7 +60,7 @@ class UploadJob<T extends Object> extends SyncJob
         return _reschedule(syncNode.jobScheduler);
       }
 
-      return const SyncJobExecutionResult(true);
+      return const SyncJobExecutionResult.success();
     } on TransactionFailedException {
       // reschedule "this" job to try again -> will lead to a conflict resoltion
       return _reschedule(syncNode.jobScheduler);

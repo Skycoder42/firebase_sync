@@ -43,8 +43,8 @@ class DownloadJob<T extends Object> extends SyncJob
     }
 
     return downloadResult.modified
-        ? const SyncJobExecutionResult(true)
-        : const SyncJobExecutionResult(false);
+        ? const SyncJobExecutionResult.success()
+        : const SyncJobExecutionResult.noop();
   }
 
   Future<_DownloadResult> _updateLocal(

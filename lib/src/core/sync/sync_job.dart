@@ -13,9 +13,8 @@ enum SyncJobResult {
 
 @freezed
 class SyncJobExecutionResult with _$SyncJobExecutionResult {
-  // ignore: avoid_positional_boolean_parameters
-  const factory SyncJobExecutionResult(bool result) =
-      _Default; // TODO split into 2
+  const factory SyncJobExecutionResult.success() = _Success;
+  const factory SyncJobExecutionResult.noop() = _Noop;
   const factory SyncJobExecutionResult.next(SyncJob nextJob) = _Next;
 }
 
@@ -31,9 +30,10 @@ abstract class SyncJob {
   @nonVirtual
   Future<void> call() async {
     try {
-      final modified = await execute();
-      _completer.complete(modified.when(
-        (result) => result ? SyncJobResult.success : SyncJobResult.noop,
+      final result = await execute();
+      _completer.complete(result.when(
+        success: () => SyncJobResult.success,
+        noop: () => SyncJobResult.noop,
         next: (job) => job.result,
       ));
     } catch (e) {

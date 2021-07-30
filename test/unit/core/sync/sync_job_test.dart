@@ -59,7 +59,7 @@ void main() {
   group('call', () {
     setUp(() {
       when(() => sutMock.execute()).thenAnswer(
-        (i) async => const SyncJobExecutionResult(true),
+        (i) async => const SyncJobExecutionResult.success(),
       );
     });
 
@@ -70,17 +70,15 @@ void main() {
     });
 
     test('result returns success if execute returns true', () {
-      sut.call();
-
+      expect(sut.call(), completes);
       expect(sut.result, completion(SyncJobResult.success));
     });
 
     test('result returns noop if execute returns false', () {
       when(() => sutMock.execute())
-          .thenAnswer((i) async => const SyncJobExecutionResult(false));
+          .thenAnswer((i) async => const SyncJobExecutionResult.noop());
 
-      sut.call();
-
+      expect(sut.call(), completes);
       expect(sut.result, completion(SyncJobResult.noop));
     });
 

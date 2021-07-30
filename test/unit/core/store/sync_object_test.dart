@@ -164,7 +164,7 @@ void main() {
         expect(result.plainKey, sut.plainKey);
       });
 
-      test('updateEtag', () {
+      test('updateRemoteTag', () {
         final sut = SyncObject(
           value: 10,
           changeState: 5,
@@ -229,7 +229,7 @@ void main() {
     );
 
     testData<Tuple2<Uint8List?, Uint8List>>(
-      'remotelyModified remoteTag or noRemoteDataTag',
+      'remoteTagOrDefault remoteTag or noRemoteDataTag',
       [
         Tuple2(null, SyncObject.noRemoteDataTag),
         Tuple2(SyncObject.noRemoteDataTag, SyncObject.noRemoteDataTag),

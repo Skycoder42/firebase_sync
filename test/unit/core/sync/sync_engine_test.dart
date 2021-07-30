@@ -27,7 +27,7 @@ class SyncJobSut extends SyncJob {
 void main() {
   SyncJobSut createJob({
     FutureOr<SyncJobExecutionResult> result =
-        const SyncJobExecutionResult(true),
+        const SyncJobExecutionResult.success(),
     String? storeName,
     String? key,
   }) {
@@ -75,13 +75,11 @@ void main() {
     });
 
     test('runs at most parallelJobs at once', () {
-      final completer = Completer<bool>();
+      final completer = Completer<SyncJobExecutionResult>();
       final jobs = <SyncJobSut>[];
       for (var i = 0; i <= sut.parallelJobs; ++i) {
         jobs.add(createJob(
-          result: completer.future.then(
-            (value) => SyncJobExecutionResult(value),
-          ),
+          result: completer.future,
           key: i.toString(),
         ));
       }

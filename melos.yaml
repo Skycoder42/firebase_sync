@@ -7,6 +7,9 @@ scripts:
   get:
     run: dart pub get
 
+  upgrade:
+    run: dart pub upgrade
+
   build:
     run: dart run build_runner build
 
