@@ -15,7 +15,7 @@ class SyncJobSut extends SyncJob {
   SyncJobSut(this.mock);
 
   @override
-  Future<bool> execute() => mock.execute();
+  Future<SyncJobExecutionResult> execute() => mock.execute();
 
   @override
   String get key => mock.key;
@@ -26,7 +26,8 @@ class SyncJobSut extends SyncJob {
 
 void main() {
   SyncJobSut createJob({
-    FutureOr<bool> result = true,
+    FutureOr<SyncJobExecutionResult> result =
+        const SyncJobExecutionResult(true),
     String? storeName,
     String? key,
   }) {
@@ -78,7 +79,9 @@ void main() {
       final jobs = <SyncJobSut>[];
       for (var i = 0; i <= sut.parallelJobs; ++i) {
         jobs.add(createJob(
-          result: completer.future,
+          result: completer.future.then(
+            (value) => SyncJobExecutionResult(value),
+          ),
           key: i.toString(),
         ));
       }

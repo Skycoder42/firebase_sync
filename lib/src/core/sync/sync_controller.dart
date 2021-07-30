@@ -9,7 +9,10 @@ abstract class SyncController<T extends Object> {
 
   Future<void> setSyncMode(SyncMode syncMode);
 
-  Future<int> download([Filter? filter]);
+  Future<int> download({
+    Filter? filter,
+    bool conflictsTriggerUpload = false,
+  });
 
   Future<int> upload({bool multipass = true});
 

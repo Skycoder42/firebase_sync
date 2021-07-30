@@ -23,7 +23,7 @@ class SyncObject<T extends Object> with _$SyncObject<T> {
         'remoteTag.length <= SyncObject.remoteTagMax)',
     'remoteTag must be either noRemoteDataTag or have at least 32 bytes',
   )
-  const factory SyncObject({
+  factory SyncObject({
     required T? value,
     required int changeState,
     required Uint8List remoteTag,
@@ -80,7 +80,7 @@ class SyncObject<T extends Object> with _$SyncObject<T> {
         remoteTag: remoteTag,
       );
 
-  SyncObject<T> updateRemoteTag(Uint8List eTag) => copyWith(
+  SyncObject<T> updateRemoteTag(Uint8List remoteTag) => copyWith(
         remoteTag: remoteTag,
       );
 

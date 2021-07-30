@@ -27,17 +27,22 @@ void main() {
   final testNonce = Uint8List.fromList(
     List.generate(40, (index) => 2 * index),
   );
+  final testRemoteTag = Uint8List.fromList(
+    List.generate(25, (index) => 50 + index),
+  );
   const testKeyId = 10;
   final cipherData = CipherMessage(
     cipherText: testCipher,
     mac: testMac,
     nonce: testNonce,
+    remoteTag: testRemoteTag,
     keyId: testKeyId,
   );
   final jsonData = <String, dynamic>{
     'cipherText': base64.encode(testCipher),
     'mac': base64.encode(testMac),
     'nonce': base64.encode(testNonce),
+    'remoteTag': base64.encode(testRemoteTag),
     'keyId': testKeyId,
   };
 

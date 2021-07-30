@@ -4,7 +4,7 @@ import 'package:test/test.dart';
 void main() {
   group('DecryptResult', () {
     test('default constructor throws when plainKey is used', () {
-      const sut = DecryptResult(42);
+      const sut = DecryptResult(jsonData: 42);
       expect(
         () => sut.plainKey,
         throwsA(isA<StateError>()),

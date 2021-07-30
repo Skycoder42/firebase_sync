@@ -1,6 +1,7 @@
 import 'package:firebase_database_rest/firebase_database_rest.dart';
 import 'package:meta/meta.dart';
 
+import '../crypto/cipher_message.dart';
 import '../store/sync_object.dart';
 import 'job_scheduler.dart';
 import 'jobs/download_job.dart';
@@ -50,17 +51,22 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
   }
 
   @override
-  Future<int> download([Filter? filter]) async {
-    final allKeys = filter != null
-        ? await syncNode.remoteStore.queryKeys(filter)
-        : await syncNode.remoteStore.keys();
+  Future<int> download({
+    Filter? filter,
+    bool conflictsTriggerUpload = false,
+  }) async {
+    final entries = filter != null
+        ? await syncNode.remoteStore.query(filter)
+        : await syncNode.remoteStore.all();
 
     final jobResults = await syncNode.jobScheduler.addJobs(
-      allKeys
+      entries.entries
           .map(
-            (key) => DownloadJob(
+            (entry) => DownloadJob(
               syncNode: syncNode,
-              key: key,
+              key: entry.key,
+              remoteCipher: entry.value,
+              conflictsTriggerUpload: conflictsTriggerUpload,
             ),
           )
           .toList(),
@@ -87,8 +93,11 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
   }
 
   @override
-  Future<int> reload({Filter? filter, bool multipass = true}) async {
-    final downloadCnt = await download(filter);
+  Future<int> reload({
+    Filter? filter,
+    bool multipass = true,
+  }) async {
+    final downloadCnt = await download(filter: filter);
     final uploadCnt = await upload(multipass: multipass);
     return downloadCnt + uploadCnt;
   }
@@ -118,22 +127,26 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
 
   Future<void> _startDownsync() async {
     if (_downloadToken == null) {
-      final stream = await syncNode.remoteStore.streamKeys();
+      // TODO query support
+      final stream = await syncNode.remoteStore.streamAll();
       _downloadToken ??= syncNode.jobScheduler.addJobStream(
         stream
             .map(
-              (event) => event.when(
-                reset: (key) => key,
-                update: (key) => [key],
-                delete: (key) => [key],
-                invalidPath: (_) => const <String>[],
+              (event) => event.when<Iterable<MapEntry<String, CipherMessage?>>>(
+                reset: (data) => data.entries,
+                put: (key, value) => [MapEntry(key, value)],
+                delete: (key) => [MapEntry(key, null)],
+                patch: (_, __) => const [],
+                invalidPath: (_) => const [],
               ),
             )
-            .expand((key) => key)
+            .expand((entries) => entries)
             .map(
-              (key) => DownloadJob(
+              (entry) => DownloadJob(
                 syncNode: syncNode,
-                key: key,
+                key: entry.key,
+                remoteCipher: entry.value,
+                conflictsTriggerUpload: false,
               ),
             ),
       );

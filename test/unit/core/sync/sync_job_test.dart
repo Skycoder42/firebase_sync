@@ -15,7 +15,7 @@ class SyncJobSut extends SyncJob {
   SyncJobSut(this.mock);
 
   @override
-  Future<bool> execute() => mock.execute();
+  Future<SyncJobExecutionResult> execute() => mock.execute();
 
   @override
   String get key => mock.key;
@@ -58,7 +58,9 @@ void main() {
 
   group('call', () {
     setUp(() {
-      when(() => sutMock.execute()).thenAnswer((i) async => true);
+      when(() => sutMock.execute()).thenAnswer(
+        (i) async => const SyncJobExecutionResult(true),
+      );
     });
 
     test('calls execute', () async {
@@ -74,7 +76,8 @@ void main() {
     });
 
     test('result returns noop if execute returns false', () {
-      when(() => sutMock.execute()).thenAnswer((i) async => false);
+      when(() => sutMock.execute())
+          .thenAnswer((i) async => const SyncJobExecutionResult(false));
 
       sut.call();
 
