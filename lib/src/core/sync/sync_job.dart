@@ -9,6 +9,7 @@ enum SyncJobResult {
   success,
   noop,
   failure,
+  aborted,
 }
 
 @freezed
@@ -29,6 +30,10 @@ abstract class SyncJob {
 
   @nonVirtual
   Future<void> call() async {
+    if (_completer.isCompleted) {
+      return;
+    }
+
     try {
       final result = await execute();
       _completer.complete(result.when(
@@ -43,9 +48,20 @@ abstract class SyncJob {
   }
 
   @nonVirtual
+  void abort() {
+    // TODO test
+    if (!_completer.isCompleted) {
+      _completer.complete(SyncJobResult.aborted);
+    }
+  }
+
+  @nonVirtual
   bool checkConflict(SyncJob other) =>
       storeName == other.storeName && key == other.key;
 
   @protected
   Future<SyncJobExecutionResult> execute();
+
+  @override
+  String toString() => '$runtimeType($storeName:$key)';
 }

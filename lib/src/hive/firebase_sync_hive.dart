@@ -51,10 +51,8 @@ class FirebaseSyncHive extends FirebaseSyncBase {
     required this.keyController,
     required this.rootStore,
     int parallelJobs = SyncEngine.defaultParallelJobs,
-    bool startSync = true,
   }) : super(
           parallelJobs: parallelJobs,
-          startSync: startSync,
         );
 
   @override

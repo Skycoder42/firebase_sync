@@ -4,6 +4,7 @@ import 'dart:collection';
 import 'package:meta/meta.dart';
 
 import 'job_scheduler.dart';
+import 'sync_error.dart';
 import 'sync_job.dart';
 
 class SyncEngine implements JobScheduler {
@@ -12,7 +13,9 @@ class SyncEngine implements JobScheduler {
   int _parallelJobs;
   bool _paused = false;
 
-  Zone? _syncZone;
+  final _errorStreamController = StreamController<SyncError>.broadcast();
+
+  late Zone _syncZone;
   final _jobQueue = LinkedList<_JobListEntry>();
   final _activeJobs = <SyncJob>[];
   final _jobStreamSubscriptions = <StreamSubscription<SyncJob>>[];
@@ -21,7 +24,15 @@ class SyncEngine implements JobScheduler {
 
   SyncEngine({
     int parallelJobs = defaultParallelJobs,
-  }) : _parallelJobs = parallelJobs;
+  }) : _parallelJobs = parallelJobs {
+    _syncZone = Zone.current.fork(
+      specification: ZoneSpecification(
+        handleUncaughtError: _handleZoneError,
+      ),
+    );
+  }
+
+  Stream<SyncError> get syncErrors => _errorStreamController.stream;
 
   int get parallelJobs => _parallelJobs;
 
@@ -34,38 +45,25 @@ class SyncEngine implements JobScheduler {
     }
   }
 
-  bool get running => _syncZone != null;
-
-  void start() {
-    _stopFuture = null;
-
-    _syncZone ??= Zone.current.fork(
-      specification: ZoneSpecification(
-        handleUncaughtError: _handleZoneError,
-      ),
-    );
-
-    _run();
-  }
-
-  Future<void> stop({bool clearPendingJobs = true}) async {
-    _syncZone = null;
-
-    if (clearPendingJobs) {
-      _jobQueue.clear();
+  Future<void> dispose() {
+    if (_stopFuture != null) {
+      return _stopFuture!;
     }
+
+    for (final entry in _jobQueue) {
+      entry.job.abort();
+    }
+    _jobQueue.clear();
 
     _stopFuture ??= Future.wait(
       _jobStreamSubscriptions
-          .map(
-            (sub) => sub.cancel(),
-          )
-          .followedBy(
-            _activeJobs.map((j) => j.result),
-          ),
+          .map((sub) => sub.cancel())
+          .followedBy(_activeJobs.map((j) => j.result)),
+    ).then(
+      (_) => _errorStreamController.close(),
     );
 
-    await _stopFuture;
+    return _stopFuture!;
   }
 
   bool get paused => _paused;
@@ -90,6 +88,8 @@ class SyncEngine implements JobScheduler {
   @override
   @internal
   Future<SyncJobResult> addJob(SyncJob job) {
+    _assertNotDisposed();
+
     _jobQueue.add(_JobListEntry(job));
     _run();
     return job.result;
@@ -97,36 +97,57 @@ class SyncEngine implements JobScheduler {
 
   @override
   @internal
-  Future<Iterable<SyncJobResult>> addJobs(List<SyncJob> jobs) {
-    _jobQueue.addAll(jobs.map((job) => _JobListEntry(job)));
+  Future<Iterable<SyncJobResult>> addJobs(Iterable<SyncJob> jobs) {
+    _assertNotDisposed();
+
+    final result = Future.wait(jobs.map((job) {
+      _jobQueue.add(_JobListEntry(job));
+      return job.result;
+    }));
     _run();
-    return Future.wait(jobs.map((job) => job.result));
+    return result;
   }
 
   @override
   @internal
   StreamCancallationToken addJobStream(Stream<SyncJob> jobStream) {
+    _assertNotDisposed();
+
+    final doneCompleter = Completer<void>.sync();
     final subscription = jobStream.listen(
       addJob,
-      onError: _syncZone!.handleUncaughtError,
+      onError: (Object e, StackTrace? s) => _errorStreamController.add(
+        SyncError.stream(
+          error: e,
+          stackTrace: s,
+          stream: jobStream.runtimeType,
+        ),
+      ),
       cancelOnError: false,
     );
+    _jobStreamSubscriptions.add(subscription);
     // TODO test if this works with cancelling
-    subscription.onDone(() => _jobStreamSubscriptions.remove(subscription));
+    subscription.onDone(() {
+      _jobStreamSubscriptions.remove(subscription);
+      doneCompleter.complete();
+    });
     if (_paused) {
       subscription.pause();
     }
-    _jobStreamSubscriptions.add(subscription);
 
-    return _EngineStreamCancallationToken(this, subscription);
+    return _EngineStreamCancallationToken(
+      this,
+      subscription,
+      doneCompleter.future,
+    );
   }
 
   void _run() {
-    if (_syncZone == null) {
+    if (_stopFuture != null) {
       return;
     }
 
-    _syncZone!.parent!.runGuarded(() {
+    _syncZone.parent!.runGuarded(() {
       while (!_paused && _activeJobs.length < _parallelJobs) {
         final job = _nextJob();
         if (job == null) {
@@ -139,13 +160,20 @@ class SyncEngine implements JobScheduler {
   }
 
   void _executeJob(SyncJob job) {
-    assert(_syncZone != null);
-
     try {
       _activeJobs.add(job);
-      _syncZone!.run(() {
+      _syncZone.run(() {
         Timer.run(() {
-          job().whenComplete(() => _completeJob(job));
+          job().whenComplete(() => _completeJob(job)).catchError(
+                (Object e, StackTrace? s) => _errorStreamController.add(
+                  SyncError.job(
+                    error: e,
+                    stackTrace: s,
+                    storeName: job.storeName,
+                    key: job.key,
+                  ),
+                ),
+              );
         });
       });
     } catch (e) {
@@ -181,9 +209,7 @@ class SyncEngine implements JobScheduler {
     StackTrace stackTrace,
   ) {
     try {
-      // TODO clean
-      // ignore: avoid_print
-      print('$error\n$stackTrace');
+      _errorStreamController.add(SyncError.uncaught(error, stackTrace));
     } catch (e, s) {
       if (identical(e, error)) {
         parent.handleUncaughtError(zone, error, stackTrace);
@@ -192,13 +218,26 @@ class SyncEngine implements JobScheduler {
       }
     }
   }
+
+  void _assertNotDisposed() {
+    if (_stopFuture != null) {
+      throw StateError('SyncEngine has already been disposed!');
+    }
+  }
 }
 
 class _EngineStreamCancallationToken implements StreamCancallationToken {
   final SyncEngine _engine;
   final StreamSubscription _streamSubscription;
 
-  _EngineStreamCancallationToken(this._engine, this._streamSubscription);
+  _EngineStreamCancallationToken(
+    this._engine,
+    this._streamSubscription,
+    this.done,
+  );
+
+  @override
+  final Future<void> done;
 
   @override
   Future<void> cancel() {

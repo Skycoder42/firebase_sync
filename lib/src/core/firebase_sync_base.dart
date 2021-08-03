@@ -18,14 +18,9 @@ abstract class FirebaseSyncBase {
 
   FirebaseSyncBase({
     int parallelJobs = SyncEngine.defaultParallelJobs,
-    bool startSync = true,
   }) : syncEngine = SyncEngine(
           parallelJobs: parallelJobs,
-        ) {
-    if (startSync) {
-      syncEngine.start();
-    }
-  }
+        );
 
   FirebaseStore<dynamic> get rootStore;
 
@@ -49,7 +44,7 @@ abstract class FirebaseSyncBase {
   @mustCallSuper
   Future<void> close() async {
     _syncNodes.clear();
-    await syncEngine.stop();
+    await syncEngine.dispose();
   }
 
   @protected
