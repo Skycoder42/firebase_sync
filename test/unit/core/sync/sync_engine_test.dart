@@ -11,9 +11,11 @@ import 'package:tuple/tuple.dart';
 class MockSyncJob extends Mock implements SyncJob {}
 
 extension SyncEngineTestX on SyncEngine {
+  static int skipErrors = 0;
+
   void logErrors() {
     // ignore: avoid_print
-    syncErrors.listen(print);
+    syncErrors.listen((e) => skipErrors > 0 ? --skipErrors : print(e));
   }
 }
 
@@ -52,6 +54,14 @@ void main() {
             : Duration.zero,
       );
 
+  setUp(() {
+    SyncEngineTestX.skipErrors = 0;
+  });
+
+  tearDown(() {
+    expect(SyncEngineTestX.skipErrors, 0);
+  });
+
   group('construction', () {
     test('returns correct default parallel jobs', () {
       final sut = SyncEngine()..logErrors();
@@ -69,6 +79,10 @@ void main() {
 
     setUp(() {
       sut = SyncEngine()..logErrors();
+    });
+
+    tearDown(() async {
+      await sut.dispose();
     });
 
     test('is running and not paused', () {
@@ -150,12 +164,13 @@ void main() {
       final job1 = createJob(storeName: 's1', key: 'k1', result: c1.future);
       final job2 = createJob(storeName: 's1', key: 'k1');
       final job3 = createJob(storeName: 's1', key: 'k2');
-      // TODO test with same store?
+      final job4 = createJob(storeName: 's2', key: 'k1');
 
       expect(
-        sut.addJobs([job1, job2, job3]),
+        sut.addJobs([job1, job2, job3, job4]),
         completion([
           SyncJobResult.noop,
+          SyncJobResult.success,
           SyncJobResult.success,
           SyncJobResult.success,
         ]),
@@ -165,6 +180,7 @@ void main() {
       verify(() => job1.mock.execute());
       verifyNever(() => job2.mock.execute());
       verify(() => job3.mock.execute());
+      verify(() => job4.mock.execute());
 
       c1.complete(const SyncJobExecutionResult.noop());
       await pump(500);
@@ -306,29 +322,123 @@ void main() {
           .toList();
     });
 
+    test('sync errors are handled and reported correctly', () {
+      SyncEngineTestX.skipErrors = 10;
+
+      final jobs = List.generate(
+        10,
+        (index) => createJob(key: index.toString()),
+      );
+      for (final job in jobs) {
+        when(() => job.mock.execute()).thenThrow(Exception(job.key));
+      }
+      when(() => jobs.last.mock.execute()).thenThrow(Error());
+
+      expect(
+        sut.addJobs(jobs),
+        completion(List.filled(10, SyncJobResult.failure)),
+      );
+    });
+
     group('streams', () {
       test('completes immediatly for empty streams', () {
-        final token = sut.addJobStream(const Stream.empty());
-        expect(token.done, completes);
+        sut.addJobStream(const Stream.empty());
       });
 
       test('add jobs from stream', () {
         final job = createJob();
-        final token = sut.addJobStream(Stream.value(job));
+        sut.addJobStream(Stream.value(job));
 
         expect(job.result, completion(SyncJobResult.success));
-        expect(token.done, completes);
       });
 
-      test('continues stream even if error happen', () {
+      test('continues stream even if errors happen', () {
+        SyncEngineTestX.skipErrors = 1;
+
+        final job1 = createJob();
+        final job2 = createJob();
         final stream = Stream<SyncJobSut>.fromFutures([
-          Future.value(createJob()),
+          Future.value(job1),
           Future.error('test', StackTrace.current),
-          Future.value(createJob()),
+          Future.value(job2),
+        ]);
+
+        sut.addJobStream(stream);
+        expect(job1.result, completion(SyncJobResult.success));
+        expect(job2.result, completion(SyncJobResult.success));
+      });
+
+      test('cancelling works as expected', () async {
+        final job1 = createJob();
+        final job2 = createJob();
+        final stream = Stream.fromFutures([
+          Future.value(job1),
+          Future.delayed(const Duration(milliseconds: 100), () => job2),
         ]);
 
         final token = sut.addJobStream(stream);
-        expect(token.done, completes);
+        await pump();
+
+        expect(token.cancel(), completes);
+        expect(job1.result, completion(SyncJobResult.success));
+        expect(job2.result, doesNotComplete);
+
+        await pump(500);
+
+        verify(() => job1.mock.execute());
+        verifyNever(() => job2.mock.execute());
+
+        // canceling again does nothing
+        expect(token.cancel(), completes);
+      });
+
+      test('does not add events in paused state', () async {
+        sut.paused = true;
+        final job = createJob();
+        sut.addJobStream(Stream.value(job));
+        await pump();
+
+        await sut.dispose();
+
+        verifyNever(() => job.mock.execute());
+        expect(job.result, doesNotComplete);
+
+        await pump(500);
+      });
+
+      test('correctly handles paused switches', () async {
+        final job1 = createJob();
+        final job2 = createJob();
+        final job2Completer = Completer<SyncJobSut>();
+        final stream = Stream.fromFutures([
+          Future.value(job1),
+          job2Completer.future,
+        ]);
+
+        sut
+          ..paused = true
+          ..addJobStream(stream);
+        expect(job1.result, completion(SyncJobResult.success));
+        expect(job2.result, completion(SyncJobResult.success));
+
+        await pump(100);
+
+        verifyNever(() => job1.mock.execute());
+        verifyNever(() => job2.mock.execute());
+
+        sut.paused = false;
+        await pump(100);
+        sut.paused = true;
+        job2Completer.complete(job2);
+        await pump(100);
+
+        verify(() => job1.mock.execute());
+        verifyNever(() => job2.mock.execute());
+
+        sut.paused = false;
+        await pump(100);
+
+        verify(() => job2.mock.execute());
       });
     });
 
@@ -369,6 +479,13 @@ void main() {
             .map((job) => verifyNever(() => job.mock.execute()))
             .toList();
       });
+
+      test('disposing twice returns the same future', () {
+        final f1 = sut.dispose();
+        final f2 = sut.dispose();
+
+        expect(f1, same(f2));
+      });
     });
   });
 
@@ -402,6 +519,4 @@ void main() {
         ..paused = false;
     });
   });
-
-  // TODO test addJobStream + pause + cancel, errors
 }

@@ -49,7 +49,6 @@ abstract class SyncJob {
 
   @nonVirtual
   void abort() {
-    // TODO test
     if (!_completer.isCompleted) {
       _completer.complete(SyncJobResult.aborted);
     }
@@ -62,6 +61,8 @@ abstract class SyncJob {
   @protected
   Future<SyncJobExecutionResult> execute();
 
+  // coverage:ignore-start
   @override
   String toString() => '$runtimeType($storeName:$key)';
+  // coverage:ignore-end
 }

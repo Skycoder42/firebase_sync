@@ -69,6 +69,13 @@ void main() {
       verify(() => sutMock.execute());
     });
 
+    test('calling twice only executes once', () async {
+      await sut.call();
+      await sut.call();
+
+      verify(() => sutMock.execute()).called(1);
+    });
+
     test('result returns success if execute returns true', () {
       expect(sut.call(), completes);
       expect(sut.result, completion(SyncJobResult.success));
@@ -88,6 +95,22 @@ void main() {
       expect(sut.call, throwsA(isA<Exception>()));
 
       expect(sut.result, completion(SyncJobResult.failure));
+    });
+
+    test('result returns abort if aborted', () {
+      sut.abort();
+
+      expect(sut.result, completion(SyncJobResult.aborted));
+      expect(sut.call(), completes);
+    });
+
+    test('calling after aborting does nothing', () {
+      sut.abort();
+      expect(sut.call(), completes);
+
+      expect(sut.result, completion(SyncJobResult.aborted));
+
+      verifyNever(() => sutMock.execute());
     });
   });
 }

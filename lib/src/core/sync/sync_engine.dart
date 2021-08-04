@@ -53,14 +53,13 @@ class SyncEngine implements JobScheduler {
     for (final entry in _jobQueue) {
       entry.job.abort();
     }
-    _jobQueue.clear();
 
     _stopFuture ??= Future.wait(
       _jobStreamSubscriptions
           .map((sub) => sub.cancel())
           .followedBy(_activeJobs.map((j) => j.result)),
-    ).then(
-      (_) => _errorStreamController.close(),
+    ).whenComplete(
+      () => _errorStreamController.close(),
     );
 
     return _stopFuture!;
@@ -113,7 +112,6 @@ class SyncEngine implements JobScheduler {
   StreamCancallationToken addJobStream(Stream<SyncJob> jobStream) {
     _assertNotDisposed();
 
-    final doneCompleter = Completer<void>.sync();
     final subscription = jobStream.listen(
       addJob,
       onError: (Object e, StackTrace? s) => _errorStreamController.add(
@@ -126,19 +124,16 @@ class SyncEngine implements JobScheduler {
       cancelOnError: false,
     );
     _jobStreamSubscriptions.add(subscription);
-    // TODO test if this works with cancelling
     subscription.onDone(() {
       _jobStreamSubscriptions.remove(subscription);
-      doneCompleter.complete();
     });
     if (_paused) {
       subscription.pause();
     }
 
     return _EngineStreamCancallationToken(
-      this,
-      subscription,
-      doneCompleter.future,
+      engine: this,
+      streamSubscription: subscription,
     );
   }
 
@@ -173,13 +168,16 @@ class SyncEngine implements JobScheduler {
                     key: job.key,
                   ),
                 ),
+                test: (e) => e is Exception,
               );
         });
       });
     } catch (e) {
+      // coverage:ignore-start
       _activeJobs.remove(job);
       _jobQueue.add(_JobListEntry(job));
       rethrow;
+      // coverage:ignore-end
     }
   }
 
@@ -211,11 +209,13 @@ class SyncEngine implements JobScheduler {
     try {
       _errorStreamController.add(SyncError.uncaught(error, stackTrace));
     } catch (e, s) {
+      // coverage:ignore-start
       if (identical(e, error)) {
         parent.handleUncaughtError(zone, error, stackTrace);
       } else {
         parent.handleUncaughtError(zone, e, s);
       }
+      // coverage:ignore-end
     }
   }
 
@@ -227,22 +227,18 @@ class SyncEngine implements JobScheduler {
 }
 
 class _EngineStreamCancallationToken implements StreamCancallationToken {
-  final SyncEngine _engine;
-  final StreamSubscription _streamSubscription;
+  final SyncEngine engine;
+  final StreamSubscription streamSubscription;
 
-  _EngineStreamCancallationToken(
-    this._engine,
-    this._streamSubscription,
-    this.done,
-  );
-
-  @override
-  final Future<void> done;
+  _EngineStreamCancallationToken({
+    required this.engine,
+    required this.streamSubscription,
+  });
 
   @override
   Future<void> cancel() {
-    if (_engine._jobStreamSubscriptions.remove(_streamSubscription)) {
-      return _streamSubscription.cancel();
+    if (engine._jobStreamSubscriptions.remove(streamSubscription)) {
+      return streamSubscription.cancel();
     } else {
       return Future.value();
     }

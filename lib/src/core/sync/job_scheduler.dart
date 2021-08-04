@@ -5,8 +5,6 @@ import 'sync_job.dart';
 abstract class StreamCancallationToken {
   const StreamCancallationToken._(); // coverage:ignore-line
 
-  Future<void> get done;
-
   Future<void> cancel();
 }
 
