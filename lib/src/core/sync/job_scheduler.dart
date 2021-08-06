@@ -15,5 +15,8 @@ abstract class JobScheduler {
 
   Future<Iterable<SyncJobResult>> addJobs(List<SyncJob> jobs);
 
-  StreamCancallationToken addJobStream(Stream<SyncJob> jobStream);
+  StreamCancallationToken addJobStream(
+    Stream<SyncJob> jobStream, [
+    String? source,
+  ]);
 }

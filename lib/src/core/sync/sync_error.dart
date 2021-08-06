@@ -14,7 +14,7 @@ class SyncError with _$SyncError {
   const factory SyncError.stream({
     required Object error,
     StackTrace? stackTrace,
-    required Type stream,
+    required String source,
   }) = _Stream;
 
   const factory SyncError.job({
@@ -28,7 +28,7 @@ class SyncError with _$SyncError {
   @override
   String toString() => '${when(
         uncaught: (e, s) => 'SyncError.uncaught',
-        stream: (e, s, stream) => 'SyncError.stream($stream)',
+        stream: (e, s, source) => 'SyncError.stream($source)',
         job: (e, s, storeName, key) => 'SyncError.job($storeName:$key)',
       )}${': $error${stackTrace != null ? '\n$stackTrace' : ''}'}';
   // coverage:ignore-end

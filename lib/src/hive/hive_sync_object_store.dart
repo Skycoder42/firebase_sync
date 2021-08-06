@@ -16,6 +16,9 @@ abstract class HiveSyncObjectStoreBase<T extends Object>
   BoxBase<SyncObject<T>> get box;
 
   @override
+  Iterable<String> get rawKeys => box.keys.cast();
+
+  @override
   Stream<StoreEvent<SyncObject<T>>> watch() =>
       box.watch().map((event) => StoreEvent(
             key: event.key as String,

@@ -6,8 +6,14 @@ abstract class SyncController<T extends Object> {
   const SyncController._(); // coverage:ignore-line
 
   SyncMode get syncMode;
-
   Future<void> setSyncMode(SyncMode syncMode);
+
+  Filter? get syncFilter;
+  Future<void> setSyncFilter(Filter? filter);
+
+  bool get autoRenew;
+  // ignore: avoid_positional_boolean_parameters
+  Future<void> setAutoRenew(bool autoRenew);
 
   Future<int> download({
     Filter? filter,

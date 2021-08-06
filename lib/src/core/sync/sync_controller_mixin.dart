@@ -16,6 +16,8 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
   SyncNode<T> get syncNode;
 
   SyncMode _syncMode = SyncMode.none;
+  Filter? _syncFilter;
+  bool _autoRenew = true;
   StreamCancallationToken? _uploadToken;
   StreamCancallationToken? _downloadToken;
 
@@ -23,31 +25,75 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
   SyncMode get syncMode => _syncMode;
 
   @override
+  Filter? get syncFilter => _syncFilter;
+
+  @override
+  bool get autoRenew => _autoRenew;
+
+  @override
+  Future<void> setSyncFilter(Filter? filter) async {
+    _syncFilter = filter;
+    if (_downloadToken != null) {
+      await _stopDownsync();
+      await _startDownsync();
+    }
+  }
+
+  @override
   Future<void> setSyncMode(SyncMode syncMode) async {
     if (syncMode == _syncMode) {
       return;
     }
 
-    switch (syncMode) {
-      case SyncMode.none:
-        _stopDownsync();
-        _stopUpsync();
-        break;
-      case SyncMode.upload:
-        _stopDownsync();
-        _startUpsync();
-        break;
-      case SyncMode.download:
-        _stopUpsync();
-        await _startDownsync();
-        break;
-      case SyncMode.sync:
-        _startUpsync();
-        await _startDownsync();
-        break;
+    try {
+      switch (syncMode) {
+        case SyncMode.none:
+          await Future.wait([
+            _stopDownsync(),
+            _stopUpsync(),
+          ]);
+          break;
+        case SyncMode.upload:
+          await Future.wait([
+            _stopDownsync(),
+            _startUpsync(),
+          ]);
+          break;
+        case SyncMode.download:
+          await Future.wait([
+            _stopUpsync(),
+            _startDownsync(),
+          ]);
+          break;
+        case SyncMode.sync:
+          await Future.wait([
+            _startUpsync(),
+            _startDownsync(),
+          ]);
+          break;
+      }
+      _syncMode = syncMode;
+    } catch (e) {
+      _syncMode = SyncMode.none;
+      await Future.wait([
+        _stopDownsync(),
+        _stopUpsync(),
+      ]);
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> setAutoRenew(bool autoRenew) async {
+    if (autoRenew == _autoRenew) {
+      return;
     }
 
-    _syncMode = syncMode;
+    _autoRenew = autoRenew;
+    if (_downloadToken != null) {
+      await _stopDownsync();
+      await _startDownsync();
+    }
   }
 
   @override
@@ -105,7 +151,7 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
   @override
   Future<void> destroy() => syncNode.remoteStore.destroy();
 
-  void _startUpsync() {
+  Future<void> _startUpsync() {
     _uploadToken ??= syncNode.jobScheduler.addJobStream(
       syncNode.localStore
           .watch()
@@ -117,45 +163,86 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
               multipass: false,
             ),
           ),
+      '${syncNode.storeName}:upload',
     );
+    return Future.value();
   }
 
-  void _stopUpsync() {
-    _uploadToken?.cancel();
+  Future<void> _stopUpsync() {
+    final cancelFuture = _uploadToken?.cancel();
     _uploadToken = null;
+    return cancelFuture ?? Future.value();
   }
 
   Future<void> _startDownsync() async {
     if (_downloadToken == null) {
-      // TODO query support
-      final stream = await syncNode.remoteStore.streamAll();
+      final Stream<StoreEvent<CipherMessage>> stream;
+      if (autoRenew) {
+        stream = AutoRenewStream.fromStream(
+          await _createDownstream(),
+          _createDownstream,
+        );
+      } else {
+        stream = await _createDownstream();
+      }
+
       _downloadToken ??= syncNode.jobScheduler.addJobStream(
-        stream
-            .map(
-              (event) => event.when<Iterable<MapEntry<String, CipherMessage?>>>(
-                reset: (data) => data.entries,
-                put: (key, value) => [MapEntry(key, value)],
-                delete: (key) => [MapEntry(key, null)],
-                patch: (_, __) => const [],
-                invalidPath: (_) => const [],
-              ),
-            )
-            .expand((entries) => entries)
-            .map(
-              (entry) => DownloadJob(
+        stream.expand(
+          (event) => event.when(
+            reset: (data) => syncNode.localStore.rawKeys
+                .where((key) => !data.keys.contains(key))
+                .map(
+                  (key) => DownloadJob(
+                    syncNode: syncNode,
+                    key: key,
+                    remoteCipher: null,
+                    conflictsTriggerUpload: false,
+                  ),
+                )
+                .followedBy(
+                  data.entries.map(
+                    (entry) => DownloadJob(
+                      syncNode: syncNode,
+                      key: entry.key,
+                      remoteCipher: entry.value,
+                      conflictsTriggerUpload: false,
+                    ),
+                  ),
+                ),
+            put: (key, value) => [
+              DownloadJob(
                 syncNode: syncNode,
-                key: entry.key,
-                remoteCipher: entry.value,
+                key: key,
+                remoteCipher: value,
                 conflictsTriggerUpload: false,
-              ),
-            ),
+              )
+            ],
+            delete: (key) => [
+              DownloadJob(
+                syncNode: syncNode,
+                key: key,
+                remoteCipher: null,
+                conflictsTriggerUpload: false,
+              )
+            ],
+            patch: (_, __) => const [],
+            invalidPath: (_) => const [],
+          ),
+        ),
+        '${syncNode.storeName}:download',
       );
     }
   }
 
-  void _stopDownsync() {
-    _downloadToken?.cancel();
+  Future<Stream<StoreEvent<CipherMessage>>> _createDownstream() =>
+      _syncFilter != null
+          ? syncNode.remoteStore.streamQuery(_syncFilter!)
+          : syncNode.remoteStore.streamAll();
+
+  Future<void> _stopDownsync() {
+    final cancelFuture = _downloadToken?.cancel();
     _downloadToken = null;
+    return cancelFuture ?? Future.value();
   }
 }
 

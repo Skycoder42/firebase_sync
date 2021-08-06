@@ -109,7 +109,10 @@ class SyncEngine implements JobScheduler {
 
   @override
   @internal
-  StreamCancallationToken addJobStream(Stream<SyncJob> jobStream) {
+  StreamCancallationToken addJobStream(
+    Stream<SyncJob> jobStream, [
+    String? source,
+  ]) {
     _assertNotDisposed();
 
     final subscription = jobStream.listen(
@@ -118,7 +121,7 @@ class SyncEngine implements JobScheduler {
         SyncError.stream(
           error: e,
           stackTrace: s,
-          stream: jobStream.runtimeType,
+          source: source ?? jobStream.runtimeType.toString(),
         ),
       ),
       cancelOnError: false,
