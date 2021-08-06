@@ -14,4 +14,6 @@ abstract class Store<T extends Object> implements StoreBase<T> {
   FutureOr<void> put(String key, T value);
 
   FutureOr<void> delete(String key);
+
+  FutureOr<void> clear();
 }

@@ -29,3 +29,11 @@ abstract class SyncController<T extends Object> {
 
   Future<void> destroy();
 }
+
+extension SyncControllerX on SyncController {
+  bool get isDownsyncActive =>
+      syncMode == SyncMode.download || syncMode == SyncMode.sync;
+
+  bool get isUpssyncActive =>
+      syncMode == SyncMode.upload || syncMode == SyncMode.sync;
+}

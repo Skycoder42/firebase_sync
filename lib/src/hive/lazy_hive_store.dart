@@ -122,6 +122,11 @@ class LazyHiveStore<T extends Object> implements Store<T> {
         ),
       );
 
+  @override
+  Future<void> clear() async {
+    await _rawBox.clear();
+  }
+
   // hive extensions
 
   Future<bool> isEmpty() => count().then((v) => v == 0);
@@ -136,19 +141,17 @@ class LazyHiveStore<T extends Object> implements Store<T> {
 
   String? get path => _rawBox.path;
 
-  // TODO clear
-
-  @protected
-  Future<void> closeBox() => _rawBox.close();
-
   Future<void> compact() => _rawBox.compact();
-
-  // TODO stop sync if running?
-  Future<void> deleteFromDisk() => _rawBox.deleteFromDisk();
 
   Future<Iterable<T>> values() => _run(
         () => _allEntries().map((entry) => entry.value.value!).toList(),
       );
+
+  @protected
+  Future<void> destroyBox() => _rawBox.deleteFromDisk();
+
+  @protected
+  Future<void> closeBox() => _rawBox.close();
 
   Future<TR> _run<TR>(FutureOr<TR> Function() run) =>
       _rawBox.lock.synchronized(run);

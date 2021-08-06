@@ -148,8 +148,12 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
     return downloadCnt + uploadCnt;
   }
 
-  @override
-  Future<void> destroy() => syncNode.remoteStore.destroy();
+  @protected
+  Future<void> destroyNode() async {
+    await setSyncMode(SyncMode.none);
+    await syncNode.jobScheduler.purgeJobs(syncNode.storeName);
+    await syncNode.remoteStore.destroy();
+  }
 
   Future<void> _startUpsync() {
     _uploadToken ??= syncNode.jobScheduler.addJobStream(

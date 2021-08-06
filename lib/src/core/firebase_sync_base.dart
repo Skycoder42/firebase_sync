@@ -81,4 +81,9 @@ abstract class FirebaseSyncBase {
 
     return syncNode as SyncNode<T>;
   }
+
+  @protected
+  void closeSyncNode(String storeName) {
+    _syncNodes.remove(storeName);
+  }
 }

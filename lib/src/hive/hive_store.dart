@@ -108,6 +108,11 @@ class HiveStore<T extends Object> implements Store<T> {
         ),
       );
 
+  @override
+  Future<void> clear() async {
+    await _rawBox.clear();
+  }
+
   // hive extensions
 
   bool get isEmpty => count() == 0;
@@ -122,15 +127,7 @@ class HiveStore<T extends Object> implements Store<T> {
 
   String? get path => _rawBox.path;
 
-  // TODO clear
-
-  @protected
-  Future<void> closeBox() => _rawBox.close();
-
   Future<void> compact() => _rawBox.compact();
-
-  // TODO stop sync if running?
-  Future<void> deleteFromDisk() => _rawBox.deleteFromDisk();
 
   Iterable<T> get values => _rawBox.values
       .where((value) => value.value != null)
@@ -147,6 +144,12 @@ class HiveStore<T extends Object> implements Store<T> {
           )
           .where((value) => value.value != null)
           .map((value) => value.value!);
+
+  @protected
+  Future<void> destroyBox() => _rawBox.deleteFromDisk();
+
+  @protected
+  Future<void> closeBox() => _rawBox.close();
 
   bool get _hashKeys => _keyHasher != null;
 

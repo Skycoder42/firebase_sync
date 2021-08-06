@@ -94,6 +94,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
         keyHasher: hashKeys ? keyHasher : null,
         conflictResolver: conflictResolver,
       ),
+      closeCallback: () => closeSyncNode(name),
     );
   }
 
@@ -132,6 +133,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
         keyHasher: hashKeys ? keyHasher : null,
         conflictResolver: conflictResolver,
       ),
+      closeCallback: () => closeSyncNode(name),
     );
   }
 
@@ -141,6 +143,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
     return HiveSyncStore(
       rawBox: hive.box(_boxName(name, hashed: syncNode.keyHasher != null)),
       syncNode: syncNode,
+      closeCallback: () => closeSyncNode(name),
     );
   }
 
@@ -149,6 +152,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
     return LazyHiveSyncStore(
       rawBox: hive.lazyBox(_boxName(name, hashed: syncNode.keyHasher != null)),
       syncNode: syncNode,
+      closeCallback: () => closeSyncNode(name),
     );
   }
 

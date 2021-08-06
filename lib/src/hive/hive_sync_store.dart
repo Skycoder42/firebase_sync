@@ -11,6 +11,9 @@ import 'lazy_hive_store.dart';
 class HiveSyncStore<T extends Object> extends HiveStore<T>
     with SyncControllerMixin<T>
     implements SyncStore<T> {
+  @internal
+  final void Function() closeCallback;
+
   @override
   @internal
   final SyncNode<T> syncNode;
@@ -18,11 +21,19 @@ class HiveSyncStore<T extends Object> extends HiveStore<T>
   HiveSyncStore({
     required Box<SyncObject<T>> rawBox,
     required this.syncNode,
+    required this.closeCallback,
   }) : super(rawBox, syncNode.boundKeyHasher);
 
   @override
+  Future<void> destroy() async {
+    closeCallback();
+    await destroyNode();
+    await destroyBox();
+  }
+
+  @override
   Future<void> close() async {
-    // TODO close sync node
+    closeCallback();
     await closeBox();
   }
 }
@@ -30,6 +41,9 @@ class HiveSyncStore<T extends Object> extends HiveStore<T>
 class LazyHiveSyncStore<T extends Object> extends LazyHiveStore<T>
     with SyncControllerMixin<T>
     implements SyncStore<T> {
+  @internal
+  final void Function() closeCallback;
+
   @override
   @internal
   final SyncNode<T> syncNode;
@@ -37,11 +51,19 @@ class LazyHiveSyncStore<T extends Object> extends LazyHiveStore<T>
   LazyHiveSyncStore({
     required LazyBox<SyncObject<T>> rawBox,
     required this.syncNode,
+    required this.closeCallback,
   }) : super(rawBox, syncNode.boundKeyHasher);
 
   @override
+  Future<void> destroy() async {
+    closeCallback();
+    await destroyNode();
+    await destroyBox();
+  }
+
+  @override
   Future<void> close() async {
-    // TODO close sync node
+    closeCallback();
     await closeBox();
   }
 }

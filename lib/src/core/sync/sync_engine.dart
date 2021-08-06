@@ -140,6 +140,17 @@ class SyncEngine implements JobScheduler {
     );
   }
 
+  @override
+  @internal
+  Future<void> purgeJobs(String storeName) {
+    _jobQueue.removeWhere((entry) => entry.job.storeName == storeName);
+    return Future.wait(
+      _activeJobs
+          .where((job) => job.storeName == storeName)
+          .map((job) => job.result),
+    );
+  }
+
   void _run() {
     if (_stopFuture != null) {
       return;
@@ -252,4 +263,23 @@ class _JobListEntry extends LinkedListEntry<_JobListEntry> {
   final SyncJob job;
 
   _JobListEntry(this.job);
+}
+
+extension _LinkedListX<T extends LinkedListEntry<T>> on LinkedList<T> {
+  void removeWhere(bool Function(T) predicate) {
+    if (isEmpty) {
+      return;
+    }
+
+    T? current = first;
+    while (current != null) {
+      if (predicate(current)) {
+        final next = current.next;
+        current.unlink();
+        current = next;
+      } else {
+        current = current.next;
+      }
+    }
+  }
 }

@@ -19,4 +19,6 @@ abstract class JobScheduler {
     Stream<SyncJob> jobStream, [
     String? source,
   ]);
+
+  Future<void> purgeJobs(String storeName);
 }
