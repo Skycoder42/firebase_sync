@@ -9,7 +9,7 @@ class SyncObject<T extends Object> with _$SyncObject<T> {
   static const changeStateMax = 0xFFFFFFFF;
   static const remoteTagMin = 32;
   static const remoteTagMax = 0xFF;
-  static final noRemoteDataTag = Uint8List(0); // TODO optional getter extension
+  static final noRemoteDataTag = Uint8List(0);
 
   const SyncObject._(); // coverage:ignore-line
 

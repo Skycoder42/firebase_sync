@@ -53,8 +53,7 @@ class DownloadJob<T extends Object> extends SyncJob
     // decrypt remote data
     final plainInfo = await syncNode.dataEncryptor.decrypt(
       storeName: syncNode.storeName,
-      store: syncNode.remoteStore,
-      key: key,
+      remoteUri: syncNode.remoteStore.remoteUri(key),
       data: remoteCipher,
       extractKey: syncNode.hashKeys,
     );

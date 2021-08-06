@@ -2,11 +2,9 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:freezed_annotation/freezed_annotation.dart';
-import 'package:path/path.dart';
 import 'package:sodium/sodium.dart';
 
 import '../core/crypto/cipher_message.dart';
-import '../core/crypto/crypto_firebase_store.dart';
 import '../core/crypto/data_encryptor.dart';
 import 'sodium_key_manager.dart';
 
@@ -25,8 +23,7 @@ class SodiumDataEncryptor implements DataEncryptor {
   @override
   Future<CipherMessage> encrypt({
     required String storeName,
-    required CryptoFirebaseStore store,
-    required String key,
+    required Uri remoteUri,
     required dynamic dataJson,
     String? plainKey,
   }) {
@@ -52,8 +49,7 @@ class SodiumDataEncryptor implements DataEncryptor {
       final cipherData = sodium.crypto.aead.encryptDetached(
         message: _jsonToBytes(plainData),
         additionalData: _buildPath(
-          store: store,
-          key: key,
+          remoteUri: remoteUri,
           remoteTag: remoteTag,
         ),
         nonce: nonce,
@@ -77,8 +73,7 @@ class SodiumDataEncryptor implements DataEncryptor {
   @override
   Future<DecryptResult> decrypt({
     required String storeName,
-    required CryptoFirebaseStore store,
-    required String key,
+    required Uri remoteUri,
     required CipherMessage data,
     bool extractKey = false,
   }) async {
@@ -92,8 +87,7 @@ class SodiumDataEncryptor implements DataEncryptor {
         sodium.crypto.aead.decryptDetached(
           cipherText: data.cipherText,
           additionalData: _buildPath(
-            store: store,
-            key: key,
+            remoteUri: remoteUri,
             remoteTag: data.remoteTag,
           ),
           mac: data.mac,
@@ -121,18 +115,24 @@ class SodiumDataEncryptor implements DataEncryptor {
   }
 
   Uint8List _buildPath({
-    required CryptoFirebaseStore store,
-    required String key,
+    required Uri remoteUri,
     required Uint8List remoteTag,
   }) {
-    final entryPath = posix.canonicalize(posix.join(
-      posix.separator,
-      store.path,
-      key,
-    ));
+    if (remoteUri.hasFragment) {
+      throw ArgumentError.value(
+        remoteUri,
+        'remoteUri',
+        'Must not have a fragment:',
+      );
+    }
+
     final entryUri = Uri(
-      scheme: store.restApi.database,
-      path: entryPath,
+      scheme: remoteUri.hasScheme ? remoteUri.scheme : null,
+      host: remoteUri.hasAuthority ? remoteUri.host : null,
+      port: remoteUri.hasPort ? remoteUri.port : null,
+      userInfo: remoteUri.hasAuthority ? remoteUri.userInfo : null,
+      path: remoteUri.hasEmptyPath ? null : remoteUri.path,
+      query: remoteUri.hasQuery ? remoteUri.query : null,
       fragment: base64Url.encode(remoteTag),
     );
     return entryUri.toString().toCharArray().unsignedView();

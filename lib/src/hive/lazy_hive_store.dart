@@ -6,7 +6,6 @@ import 'package:synchronized/synchronized.dart';
 
 import '../core/crypto/key_hasher.dart';
 import '../core/store/store.dart';
-import '../core/store/store_base.dart';
 import '../core/store/store_event.dart';
 import '../core/store/sync_object.dart';
 

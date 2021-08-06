@@ -1,12 +1,15 @@
+import 'package:meta/meta.dart';
+
 abstract class KeyHasher {
   const KeyHasher._(); // coverage:ignore-line
 
   String hashKey({
     required String storeName,
-    required String key,
+    required String plainKey,
   });
 }
 
+@sealed
 class StoreBoundKeyHasher {
   final String storeName;
   final KeyHasher keyHasher;
@@ -16,8 +19,8 @@ class StoreBoundKeyHasher {
     required this.keyHasher,
   });
 
-  String hashKey(String key) => keyHasher.hashKey(
+  String hashKey(String plainKey) => keyHasher.hashKey(
         storeName: storeName,
-        key: key,
+        plainKey: plainKey,
       );
 }

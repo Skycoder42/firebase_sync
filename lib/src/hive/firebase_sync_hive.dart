@@ -177,7 +177,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
   String _boxName(String storeName, {required bool hashed}) => hashed
       ? keyHasher.hashKey(
           storeName: storeName,
-          key: storeName,
+          plainKey: storeName,
         )
       : storeName;
 

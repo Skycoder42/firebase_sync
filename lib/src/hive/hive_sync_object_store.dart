@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:hive/hive.dart';
 import 'package:meta/meta.dart';
 
-import '../core/store/store_base.dart';
 import '../core/store/store_event.dart';
 import '../core/store/sync_object.dart';
 import '../core/store/sync_object_store.dart';
@@ -42,7 +41,7 @@ class HiveSyncObjectStore<T extends Object> extends HiveSyncObjectStoreBase<T> {
   @override
   SyncObject<T>? update(
     String key,
-    UpdateFn<SyncObject<T>> onUpdate,
+    UpdateFn<T> onUpdate,
   ) {
     final entry = box.get(key);
     return onUpdate(entry).when(
@@ -102,7 +101,7 @@ class LazyHiveSyncObjectStore<T extends Object>
   @override
   FutureOr<SyncObject<T>?> update(
     String key,
-    UpdateFn<SyncObject<T>> onUpdate,
+    UpdateFn<T> onUpdate,
   ) =>
       box.lock.synchronized(() async {
         final entry = await box.get(key);

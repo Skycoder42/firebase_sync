@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:isolate';
 
-import 'package:firebase_sync/src/core/crypto/key_manager.dart';
 import 'package:sodium/sodium.dart';
 
 import 'key_controller.dart';
@@ -21,7 +20,7 @@ class InvalidRemoteEncryptionKeyId implements Exception {
   String toString() => 'Invalid remote key encryption key id: $keyId';
 }
 
-class SodiumKeyManager implements KeyManager<SecureKey> {
+class SodiumKeyManager {
   static const _rootContext = 'fbs_root';
   static const _localEncryptionKeyContext = 'fbslocal';
   static const _keyHashingKeyContext = 'fbs_keys';
@@ -86,7 +85,6 @@ class SodiumKeyManager implements KeyManager<SecureKey> {
     }
   }
 
-  @override
   SecureKey localEncryptionKey({
     required String storeName,
     required int keyBytes,
@@ -103,7 +101,6 @@ class SodiumKeyManager implements KeyManager<SecureKey> {
     );
   }
 
-  @override
   SecureKey keyHashingKey({
     required String storeName,
     required int keyBytes,
@@ -120,7 +117,6 @@ class SodiumKeyManager implements KeyManager<SecureKey> {
     );
   }
 
-  @override
   MapEntry<int, SecureKey> remoteEncryptionKey({
     required String storeName,
     required int keyBytes,
@@ -140,7 +136,6 @@ class SodiumKeyManager implements KeyManager<SecureKey> {
     return MapEntry(_currentKeyId!, key);
   }
 
-  @override
   Future<SecureKey> remoteEncryptionKeyForId({
     required String storeName,
     required int keyId,

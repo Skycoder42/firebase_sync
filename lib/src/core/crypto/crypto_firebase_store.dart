@@ -1,4 +1,5 @@
 import 'package:firebase_database_rest/firebase_database_rest.dart';
+import 'package:path/path.dart';
 
 import 'cipher_message.dart';
 
@@ -10,6 +11,18 @@ class CryptoFirebaseStore extends FirebaseStore<CipherMessage> {
           parent: parent,
           path: name,
         );
+
+  Uri remoteUri(String key) => Uri(
+        scheme: restApi.database,
+        path: posix.canonicalize(
+          posix.join(
+            posix.separator,
+            restApi.basePath,
+            path,
+            key,
+          ),
+        ),
+      );
 
   @override
   CipherMessage dataFromJson(dynamic json) =>

@@ -17,7 +17,7 @@ class SodiumKeyHasher implements KeyHasher {
   @override
   String hashKey({
     required String storeName,
-    required String key,
+    required String plainKey,
   }) {
     final hashingKey = keyManager.keyHashingKey(
       storeName: storeName,
@@ -27,7 +27,7 @@ class SodiumKeyHasher implements KeyHasher {
       final hash = sodium.crypto.genericHash(
         key: hashingKey,
         outLen: sodium.crypto.genericHash.bytesMax,
-        message: key.toCharArray().unsignedView(),
+        message: plainKey.toCharArray().unsignedView(),
       );
       return base64Url.encode(hash);
     } finally {

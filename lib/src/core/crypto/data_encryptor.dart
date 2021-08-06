@@ -2,7 +2,6 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:meta/meta.dart';
 
 import 'cipher_message.dart';
-import 'crypto_firebase_store.dart';
 
 part 'data_encryptor.freezed.dart';
 
@@ -29,17 +28,15 @@ class DecryptResult with _$DecryptResult {
 abstract class DataEncryptor {
   Future<CipherMessage> encrypt({
     required String storeName,
-    required CryptoFirebaseStore store,
-    required String key,
+    required Uri remoteUri,
     required dynamic dataJson,
     String? plainKey,
   });
 
   Future<DecryptResult> decrypt({
     required String storeName,
-    required CryptoFirebaseStore store,
-    required String key,
+    required Uri remoteUri,
     required CipherMessage data,
-    bool extractKey = false,
+    bool extractKey,
   });
 }
