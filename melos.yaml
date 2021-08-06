@@ -17,49 +17,49 @@ scripts:
     run: dart run build_runner watch
 
   test:
-    run: dart run tool/test_runner.dart
+    run: dart run dart_test_tools:test
 
   test:coverage:
-    run: dart run tool/test_runner.dart -c
+    run: dart run dart_test_tools:test -c
 
   test:coverage:open:
-    run: dart run tool/test_runner.dart -co
+    run: dart run dart_test_tools:test -cho
 
   test:unit:
-    run: dart run tool/test_runner.dart -munit
+    run: dart run dart_test_tools:test -munit
 
   test:unit:coverage:
-    run: dart run tool/test_runner.dart -munit -c
+    run: dart run dart_test_tools:test -munit -c
 
   test:unit:coverage:open:
-    run: dart run tool/test_runner.dart -munit -co
+    run: dart run dart_test_tools:test -munit -cho
 
   test:unit:vm:
-    run: dart run tool/test_runner.dart -munit -pvm
+    run: dart run dart_test_tools:test -munit -pvm
 
   test:unit:vm:coverage:
-    run: dart run tool/test_runner.dart -munit -pvm -c
+    run: dart run dart_test_tools:test -munit -pvm -c
 
   test:unit:vm:coverage:open:
-    run: dart run tool/test_runner.dart -munit -pvm -co
+    run: dart run dart_test_tools:test -munit -pvm -cho
 
   test:unit:js:
-    run: dart run tool/test_runner.dart -munit -pjs
+    run: dart run dart_test_tools:test -munit -pjs
 
   test:unit:js:coverage:
-    run: dart run tool/test_runner.dart -munit -pjs -c
+    run: dart run dart_test_tools:test -munit -pjs -c
 
   test:unit:js:coverage:open:
-    run: dart run tool/test_runner.dart -munit -pjs -co
+    run: dart run dart_test_tools:test -munit -pjs -cho
 
   test:integration:
-    run: dart run tool/test_runner.dart -mintegration
+    run: dart run dart_test_tools:test -mintegration
 
   test:integration:vm:
-    run: dart run tool/test_runner.dart -mintegration -pvm
+    run: dart run dart_test_tools:test -mintegration -pvm
 
   test:integration:js:
-    run: dart run tool/test_runner.dart -mintegration -pjs
+    run: dart run dart_test_tools:test -mintegration -pjs
 
   pre-commit:init:
     run: >-

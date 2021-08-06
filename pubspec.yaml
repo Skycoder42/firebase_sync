@@ -29,3 +29,5 @@ dev_dependencies:
   mocktail: ^0.1.4
   test: ^1.17.10
   tuple: ^2.0.0
+  dart_test_tools:
+    git: https://github.com/Skycoder42/dart_test_tools.git

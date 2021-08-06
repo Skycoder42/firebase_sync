@@ -41,8 +41,8 @@ jobs:
       - run: dart pub get
       - run: dart run build_runner build
       - run: dart analyze --fatal-infos
-      - run: dart run tool/test_runner.dart -munit -c -p${{ matrix.system }}
-      - run: dart run tool/test_runner.dart -mintegration -p${{ matrix.system }}
+      - run: dart run dart_test_tools:test -munit -c -p${{ matrix.system }}
+      - run: dart run dart_test_tools:test -mintegration -p${{ matrix.system }}
       - uses: VeryGoodOpenSource/very_good_coverage@v1.1.1
         with:
           path: coverage/lcov.info
