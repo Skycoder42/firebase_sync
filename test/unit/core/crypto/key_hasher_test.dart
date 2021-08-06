@@ -25,7 +25,7 @@ void main() {
       when(
         () => mockKeyHash.hashKey(
           storeName: any(named: 'storeName'),
-          key: any(named: 'key'),
+          plainKey: any(named: 'plainKey'),
         ),
       ).thenReturn(expectedHash);
 
@@ -33,7 +33,7 @@ void main() {
       final result = sut.hashKey(key);
 
       expect(result, expectedHash);
-      verify(() => mockKeyHash.hashKey(storeName: storeName, key: key));
+      verify(() => mockKeyHash.hashKey(storeName: storeName, plainKey: key));
     });
   });
 }

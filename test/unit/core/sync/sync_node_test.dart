@@ -92,7 +92,7 @@ void main() {
       when(
         () => mockKeyHasher.hashKey(
           storeName: any(named: 'storeName'),
-          key: any(named: 'key'),
+          plainKey: any(named: 'plainKey'),
         ),
       ).thenReturn(hashedKey);
 
@@ -104,7 +104,7 @@ void main() {
       final result = boundKeyHasher!.hashKey(key);
 
       expect(result, hashedKey);
-      verify(() => mockKeyHasher.hashKey(storeName: storeName, key: key));
+      verify(() => mockKeyHasher.hashKey(storeName: storeName, plainKey: key));
     });
   });
 }
