@@ -66,6 +66,18 @@ void main() {
     expect(sut.subPaths, const [name]);
   });
 
+  test('remoteUri constructs URI as expected', () {
+    when(() => mockRestApi.database).thenReturn('database');
+    when(() => mockRestApi.basePath).thenReturn('base//path');
+    when(() => mockParent.subPaths).thenReturn(const ['sub/', 'paths']);
+
+    sut = CryptoFirebaseStore(parent: mockParent, name: 'name');
+
+    final uri = sut.remoteUri('key');
+
+    expect(uri, Uri.parse('database:/base/path/sub/paths/name/key'));
+  });
+
   test('dataFromJson uses CipherMessage.fromJson to decode data', () {
     final result = sut.dataFromJson(jsonData);
     expect(result, cipherData);

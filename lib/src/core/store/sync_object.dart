@@ -6,9 +6,9 @@ part 'sync_object.freezed.dart';
 
 @freezed
 class SyncObject<T extends Object> with _$SyncObject<T> {
-  static const changeStateMax = 0xFFFFFFFF;
+  static const changeStateMax = 0xFFFFFFFF; // uint32 max
   static const remoteTagMin = 32;
-  static const remoteTagMax = 0xFF;
+  static const remoteTagMax = 0xFF; // uint8 max
   static final noRemoteDataTag = Uint8List(0);
 
   const SyncObject._(); // coverage:ignore-line
@@ -21,7 +21,8 @@ class SyncObject<T extends Object> with _$SyncObject<T> {
     'remoteTag.isEmpty || '
         '(remoteTag.length >= SyncObject.remoteTagMin && '
         'remoteTag.length <= SyncObject.remoteTagMax)',
-    'remoteTag must be either noRemoteDataTag or have at least 32 bytes',
+    'remoteTag must be a valid uint8 value that is either empty '
+        '(noRemoteDataTag) or has at least $remoteTagMin bytes',
   )
   factory SyncObject({
     required T? value,

@@ -19,7 +19,7 @@ dependencies:
 
 dev_dependencies:
   args: ^2.2.0
-  build_runner: ^2.1.0
+  build_runner: ^2.1.1
   coverage: ^1.0.3
   dart_pre_commit: ^2.3.2
   freezed: ^0.14.2
@@ -31,3 +31,12 @@ dev_dependencies:
   tuple: ^2.0.0
   dart_test_tools:
     git: https://github.com/Skycoder42/dart_test_tools.git
+
+# dependency_overrides:
+#   dart_test_tools:
+#     path: ../dart_test_tools
+
+dart_test_tools:
+  publish:
+    exclude:
+      - lib/src/.gitignore

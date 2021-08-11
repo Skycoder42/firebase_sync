@@ -20,10 +20,7 @@ abstract class Store<T extends Object> {
 
   FutureOr<void> put(String key, T value);
 
-  FutureOr<T?> update(
-    String key,
-    UpdateFn<T> onUpdate,
-  );
+  FutureOr<T?> update(String key, UpdateFn<T> onUpdate);
 
   FutureOr<void> delete(String key);
 

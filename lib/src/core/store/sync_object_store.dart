@@ -17,10 +17,7 @@ abstract class SyncObjectStore<T extends Object> {
 
   FutureOr<SyncObject<T>?> get(String key);
 
-  FutureOr<SyncObject<T>?> update(
-    String key,
-    UpdateFn<T> onUpdate,
-  );
+  FutureOr<SyncObject<T>?> update(String key, UpdateFn<T> onUpdate);
 
   Stream<StoreEvent<SyncObject<T>>> watch();
 }

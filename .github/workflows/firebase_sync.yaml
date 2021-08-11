@@ -50,4 +50,4 @@ jobs:
           exclude: |
             **/*.freezed.dart
             **/*.g.dart
-      - run: dart pub publish --dry-run
+      - run: dart run dart_test_tools:publish --dry-run
