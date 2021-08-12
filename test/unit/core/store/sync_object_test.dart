@@ -19,7 +19,6 @@ void main() {
         expect(sut.value, isNull);
         expect(sut.changeState, 0);
         expect(sut.remoteTag, SyncObject.noRemoteDataTag);
-        expect(sut.plainKey, isNull);
       });
 
       testData<int>(
@@ -60,36 +59,33 @@ void main() {
       );
 
       test('SyncObject.local initializes correctly', () {
-        const plainKey = 'key';
-        final sut = SyncObject<int>.local(42, plainKey: plainKey);
+        final sut = SyncObject<int>.local(42);
 
         expect(sut.value, 42);
         expect(sut.changeState, 1);
         expect(sut.remoteTag, SyncObject.noRemoteDataTag);
-        expect(sut.plainKey, plainKey);
       });
 
       test('SyncObject.remote initializes correctly', () {
-        const plainKey = 'key';
         final remoteTag = Uint8List.fromList(
           List.filled(SyncObject.remoteTagMin, 10),
         );
-        final sut = SyncObject<int>.remote(13, remoteTag, plainKey: plainKey);
+        final sut = SyncObject<int>.remote(
+          13,
+          remoteTag,
+        );
 
         expect(sut.value, 13);
         expect(sut.changeState, 0);
         expect(sut.remoteTag, remoteTag);
-        expect(sut.plainKey, plainKey);
       });
 
       test('SyncObject.deleted initializes correctly', () {
-        const plainKey = 'deletedKey';
-        final sut = SyncObject<int>.deleted(plainKey: plainKey);
+        final sut = SyncObject<int>.deleted();
 
         expect(sut.value, isNull);
         expect(sut.changeState, 0);
         expect(sut.remoteTag, SyncObject.noRemoteDataTag);
-        expect(sut.plainKey, plainKey);
       });
     });
 
@@ -101,7 +97,6 @@ void main() {
           remoteTag: Uint8List.fromList(
             List.generate(SyncObject.remoteTagMin, (index) => index),
           ),
-          plainKey: 'key',
         );
 
         test('updates value and increments changeState', () {
@@ -109,7 +104,6 @@ void main() {
           expect(result.value, 20);
           expect(result.changeState, 6);
           expect(result.remoteTag, sut.remoteTag);
-          expect(result.plainKey, sut.plainKey);
         });
 
         test('overwrites remoteTag, if specified', () {
@@ -120,7 +114,6 @@ void main() {
           expect(result.value, isNull);
           expect(result.changeState, 6);
           expect(result.remoteTag, newRemoteTag);
-          expect(result.plainKey, sut.plainKey);
         });
       });
 
@@ -131,7 +124,6 @@ void main() {
           remoteTag: Uint8List.fromList(
             List.generate(SyncObject.remoteTagMin, (index) => index + 11),
           ),
-          plainKey: 'key',
         );
 
         final newRemoteTag = Uint8List.fromList(
@@ -141,7 +133,6 @@ void main() {
         expect(result.value, 42);
         expect(result.changeState, 0);
         expect(result.remoteTag, newRemoteTag);
-        expect(result.plainKey, sut.plainKey);
       });
 
       test('updateUploaded', () {
@@ -151,7 +142,6 @@ void main() {
           remoteTag: Uint8List.fromList(
             List.generate(SyncObject.remoteTagMin, (index) => index + 11),
           ),
-          plainKey: 'key',
         );
 
         final newRemoteTag = Uint8List.fromList(
@@ -161,7 +151,6 @@ void main() {
         expect(result.value, sut.value);
         expect(result.changeState, 0);
         expect(result.remoteTag, newRemoteTag);
-        expect(result.plainKey, sut.plainKey);
       });
 
       test('updateRemoteTag', () {
@@ -171,7 +160,6 @@ void main() {
           remoteTag: Uint8List.fromList(
             List.generate(SyncObject.remoteTagMin, (index) => index + 11),
           ),
-          plainKey: 'key',
         );
 
         final newRemoteTag = Uint8List.fromList(
@@ -181,7 +169,6 @@ void main() {
         expect(result.value, sut.value);
         expect(result.changeState, sut.changeState);
         expect(result.remoteTag, newRemoteTag);
-        expect(result.plainKey, sut.plainKey);
       });
     });
   });

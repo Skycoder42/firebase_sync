@@ -51,13 +51,12 @@ class DownloadJob<T extends Object> extends SyncJob
     CipherMessage remoteCipher,
   ) async {
     // decrypt remote data
-    final plainInfo = await syncNode.dataEncryptor.decrypt(
+    final dynamic plainJson = await syncNode.dataEncryptor.decrypt(
       storeName: syncNode.storeName,
       remoteUri: syncNode.remoteStore.remoteUri(key),
       data: remoteCipher,
-      extractKey: syncNode.hashKeys,
     );
-    final plainData = syncNode.jsonConverter.dataFromJson(plainInfo.jsonData);
+    final plainData = syncNode.jsonConverter.dataFromJson(plainJson);
 
     // update locally
     late final Uint8List oldRemoteTag;
@@ -70,7 +69,6 @@ class DownloadJob<T extends Object> extends SyncJob
           return UpdateAction.update(SyncObject.remote(
             plainData,
             remoteCipher.remoteTag,
-            plainKey: syncNode.hashKeys ? plainInfo.plainKey : null,
           ));
         }
 

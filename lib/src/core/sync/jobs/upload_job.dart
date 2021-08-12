@@ -76,7 +76,6 @@ class UploadJob<T extends Object> extends SyncJob
       storeName: syncNode.storeName,
       remoteUri: syncNode.remoteStore.remoteUri(key),
       dataJson: syncNode.jsonConverter.dataToJson(localEntry.value!),
-      plainKey: syncNode.hashKeys ? localEntry.plainKey : null,
     );
 
     // upload
@@ -135,12 +134,12 @@ class UploadJob<T extends Object> extends SyncJob
     // decrypt remote data, if not null
     final T? remoteData;
     if (transaction.value != null) {
-      final plainData = await syncNode.dataEncryptor.decrypt(
+      final dynamic jsonData = await syncNode.dataEncryptor.decrypt(
         storeName: syncNode.storeName,
         remoteUri: syncNode.remoteStore.remoteUri(key),
         data: transaction.value!,
       );
-      remoteData = syncNode.jsonConverter.dataFromJson(plainData.jsonData);
+      remoteData = syncNode.jsonConverter.dataFromJson(jsonData);
     } else {
       remoteData = null;
     }

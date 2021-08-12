@@ -23,12 +23,10 @@ class InvalidRemoteEncryptionKeyId implements Exception {
 class SodiumKeyManager {
   static const _rootContext = 'fbs_root';
   static const _localEncryptionKeyContext = 'fbslocal';
-  static const _keyHashingKeyContext = 'fbs_keys';
   static const _remoteEncryptionKeyContext = 'fbs_sync';
 
   static const _localEncryptionKeyId = 0;
-  static const _keyHashingKeyId = 1;
-  static const _remoteEncryptionKeyOffset = 2;
+  static const _remoteEncryptionKeyOffset = 1;
 
   static const _daysPerMonth = 30;
 
@@ -65,13 +63,6 @@ class SodiumKeyManager {
         subkeyLen: sodium.crypto.kdf.keyBytes,
       );
 
-      _keyHashingKey = sodium.crypto.kdf.deriveFromKey(
-        masterKey: masterKey,
-        context: _rootContext,
-        subkeyId: _keyHashingKeyId,
-        subkeyLen: sodium.crypto.kdf.keyBytes,
-      );
-
       final currentKeyId = _keyIdForDate(now ?? DateTime.now().toUtc());
       _remoteEncryptionKeys[currentKeyId] = sodium.crypto.kdf.deriveFromKey(
         masterKey: masterKey,
@@ -96,22 +87,6 @@ class SodiumKeyManager {
     return sodium.crypto.kdf.deriveFromKey(
       masterKey: _localEncryptionKey!,
       context: _localEncryptionKeyContext,
-      subkeyId: keyController.idForStoreName(storeName),
-      subkeyLen: keyBytes,
-    );
-  }
-
-  SecureKey keyHashingKey({
-    required String storeName,
-    required int keyBytes,
-  }) {
-    if (_keyHashingKey == null) {
-      throw KeyManagerLockedError();
-    }
-
-    return sodium.crypto.kdf.deriveFromKey(
-      masterKey: _keyHashingKey!,
-      context: _keyHashingKeyContext,
       subkeyId: keyController.idForStoreName(storeName),
       subkeyLen: keyBytes,
     );

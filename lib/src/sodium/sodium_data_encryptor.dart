@@ -21,6 +21,9 @@ class SodiumDataEncryptor implements DataEncryptor {
   });
 
   @override
+  Uint8List generateRandom(int length) => sodium.randombytes.buf(length);
+
+  @override
   Future<CipherMessage> encrypt({
     required String storeName,
     required Uri remoteUri,
@@ -71,7 +74,7 @@ class SodiumDataEncryptor implements DataEncryptor {
   }
 
   @override
-  Future<DecryptResult> decrypt({
+  Future<dynamic> decrypt({
     required String storeName,
     required Uri remoteUri,
     required CipherMessage data,
@@ -96,19 +99,7 @@ class SodiumDataEncryptor implements DataEncryptor {
         ),
       );
 
-      if (extractKey) {
-        final plainCryptoData = _PlainCryptoData.fromJson(
-          plainData as Map<String, dynamic>,
-        );
-        return DecryptResult.withPlainKey(
-          jsonData: plainCryptoData.data,
-          plainKey: plainCryptoData.key,
-        );
-      } else {
-        return DecryptResult(
-          jsonData: plainData,
-        );
-      }
+      return plainData;
     } finally {
       encryptionKey.dispose();
     }

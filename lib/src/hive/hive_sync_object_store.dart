@@ -51,21 +51,10 @@ class HiveSyncObjectStore<T extends Object> extends HiveSyncObjectStoreBase<T> {
         return value;
       },
       delete: () {
-        _triggerDeleteEvent(key, entry);
         box.delete(key);
         return null;
       },
     );
-  }
-
-  void _triggerDeleteEvent(String key, SyncObject<T>? entry) {
-    // workaround to trigger stream events when items get deleted
-    if (entry?.plainKey != null) {
-      box.put(
-        key,
-        SyncObject.deleted(plainKey: entry?.plainKey),
-      );
-    }
   }
 }
 
@@ -112,24 +101,9 @@ class LazyHiveSyncObjectStore<T extends Object>
             return value;
           },
           delete: () async {
-            await Future.wait([
-              _triggerDeleteEvent(key, entry),
-              box.delete(key),
-            ]);
+            await box.delete(key);
             return null;
           },
         );
       });
-
-  Future<void> _triggerDeleteEvent(String key, SyncObject<T>? entry) {
-    // workaround to trigger stream events when items get deleted
-    if (entry?.plainKey != null) {
-      return box.put(
-        key,
-        SyncObject.deleted(plainKey: entry?.plainKey),
-      );
-    } else {
-      return Future.value();
-    }
-  }
 }

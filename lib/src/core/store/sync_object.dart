@@ -28,40 +28,24 @@ class SyncObject<T extends Object> with _$SyncObject<T> {
     required T? value,
     required int changeState,
     required Uint8List remoteTag,
-    String? plainKey,
   }) = _SyncObject<T>;
 
-  factory SyncObject.local(
-    T value, {
-    String? plainKey,
-  }) =>
-      SyncObject(
+  factory SyncObject.local(T value) => SyncObject(
         value: value,
         changeState: 1,
         remoteTag: noRemoteDataTag,
-        plainKey: plainKey,
       );
 
-  factory SyncObject.remote(
-    T value,
-    Uint8List remoteTag, {
-    String? plainKey,
-  }) =>
-      SyncObject(
+  factory SyncObject.remote(T value, Uint8List remoteTag) => SyncObject(
         value: value,
         changeState: 0,
         remoteTag: remoteTag,
-        plainKey: plainKey,
       );
 
-  factory SyncObject.deleted({
-    String? plainKey,
-  }) =>
-      SyncObject(
+  factory SyncObject.deleted() => SyncObject(
         value: null,
         changeState: 0,
         remoteTag: noRemoteDataTag,
-        plainKey: plainKey,
       );
 
   SyncObject<T> updateLocal(T? value, {Uint8List? remoteTag}) => copyWith(

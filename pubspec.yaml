@@ -16,6 +16,7 @@ dependencies:
   path: ^1.8.0
   sodium: ^1.0.0
   synchronized: ^3.0.0
+  uuid: ^3.0.4
 
 dev_dependencies:
   args: ^2.2.0

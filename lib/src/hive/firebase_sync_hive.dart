@@ -13,7 +13,6 @@ import '../core/sync/sync_engine.dart';
 import '../core/sync/sync_mode.dart';
 import '../sodium/key_controller.dart';
 import '../sodium/sodium_data_encryptor.dart';
-import '../sodium/sodium_key_hasher.dart';
 import '../sodium/sodium_key_manager.dart';
 import 'crypto/sodium_hive_cipher.dart';
 import 'hive_sync_object_store.dart';
@@ -32,12 +31,6 @@ class FirebaseSyncHive extends FirebaseSyncBase {
 
   @override
   late final SodiumDataEncryptor cryptoService = SodiumDataEncryptor(
-    sodium: sodium,
-    keyManager: keyManager,
-  );
-
-  @override
-  late final SodiumKeyHasher keyHasher = SodiumKeyHasher(
     sodium: sodium,
     keyManager: keyManager,
   );
@@ -65,19 +58,15 @@ class FirebaseSyncHive extends FirebaseSyncBase {
     required covariant TypeAdapter<T> storageConverter,
     SyncMode syncMode = SyncMode.sync, // TODO use
     ConflictResolver<T>? conflictResolver,
-    bool hashKeys = false,
     KeyComparator keyComparator = defaultKeyComparator,
     CompactionStrategy compactionStrategy = defaultCompactionStrategy,
     bool crashRecovery = true,
     String? path,
   }) async {
-    _registerTypeAdapter(
-      hiveAdapter: storageConverter,
-      hashKeys: hashKeys,
-    );
+    _registerTypeAdapter(storageConverter);
 
     final box = await hive.openBox<SyncObject<T>>(
-      _boxName(name, hashed: hashKeys),
+      name,
       encryptionCipher: await _createCipher(name),
       keyComparator: keyComparator,
       compactionStrategy: compactionStrategy,
@@ -91,7 +80,6 @@ class FirebaseSyncHive extends FirebaseSyncBase {
         storeName: name,
         localStore: HiveSyncObjectStore(box),
         jsonConverter: jsonConverter,
-        keyHasher: hashKeys ? keyHasher : null,
         conflictResolver: conflictResolver,
       ),
       closeCallback: () => closeSyncNode(name),
@@ -104,19 +92,15 @@ class FirebaseSyncHive extends FirebaseSyncBase {
     required covariant TypeAdapter<T> storageConverter,
     SyncMode syncMode = SyncMode.sync, // TODO use
     ConflictResolver<T>? conflictResolver,
-    bool hashKeys = false,
     KeyComparator keyComparator = defaultKeyComparator,
     CompactionStrategy compactionStrategy = defaultCompactionStrategy,
     bool crashRecovery = true,
     String? path,
   }) async {
-    _registerTypeAdapter(
-      hiveAdapter: storageConverter,
-      hashKeys: hashKeys,
-    );
+    _registerTypeAdapter(storageConverter);
 
     final box = await hive.openLazyBox<SyncObject<T>>(
-      _boxName(name, hashed: hashKeys),
+      name,
       encryptionCipher: await _createCipher(name),
       keyComparator: keyComparator,
       compactionStrategy: compactionStrategy,
@@ -130,7 +114,6 @@ class FirebaseSyncHive extends FirebaseSyncBase {
         storeName: name,
         localStore: LazyHiveSyncObjectStore(box),
         jsonConverter: jsonConverter,
-        keyHasher: hashKeys ? keyHasher : null,
         conflictResolver: conflictResolver,
       ),
       closeCallback: () => closeSyncNode(name),
@@ -141,7 +124,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
   HiveSyncStore<T> store<T extends Object>(String name) {
     final syncNode = getSyncNode<T>(name);
     return HiveSyncStore(
-      rawBox: hive.box(_boxName(name, hashed: syncNode.keyHasher != null)),
+      rawBox: hive.box(name),
       syncNode: syncNode,
       closeCallback: () => closeSyncNode(name),
     );
@@ -150,7 +133,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
   LazyHiveSyncStore<T> lazyStore<T extends Object>(String name) {
     final syncNode = getSyncNode<T>(name);
     return LazyHiveSyncStore(
-      rawBox: hive.lazyBox(_boxName(name, hashed: syncNode.keyHasher != null)),
+      rawBox: hive.lazyBox(name),
       syncNode: syncNode,
       closeCallback: () => closeSyncNode(name),
     );
@@ -162,24 +145,11 @@ class FirebaseSyncHive extends FirebaseSyncBase {
     await hive.close();
   }
 
-  void _registerTypeAdapter<T extends Object>({
-    required TypeAdapter<T> hiveAdapter,
-    bool hashKeys = false,
-  }) {
+  void _registerTypeAdapter<T extends Object>(TypeAdapter<T> hiveAdapter) {
     hive.registerAdapter(
-      SyncObjectAdapter<T>(
-        contentAdapter: hiveAdapter,
-        writePlainKeys: hashKeys,
-      ),
+      SyncObjectAdapter<T>(hiveAdapter),
     );
   }
-
-  String _boxName(String storeName, {required bool hashed}) => hashed
-      ? keyHasher.hashKey(
-          storeName: storeName,
-          plainKey: storeName,
-        )
-      : storeName;
 
   Future<HiveCipher> _createCipher(String storeName) async => SodiumHiveCipher(
         sodium: sodium,

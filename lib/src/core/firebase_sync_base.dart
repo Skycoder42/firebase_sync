@@ -1,9 +1,9 @@
 import 'package:firebase_database_rest/firebase_database_rest.dart';
 import 'package:meta/meta.dart';
+import 'package:uuid/uuid.dart';
 
 import 'crypto/crypto_firebase_store.dart';
 import 'crypto/data_encryptor.dart';
-import 'crypto/key_hasher.dart';
 import 'store/sync_object_store.dart';
 import 'sync/conflict_resolver.dart';
 import 'sync/sync_engine.dart';
@@ -26,8 +26,6 @@ abstract class FirebaseSyncBase {
 
   DataEncryptor get cryptoService;
 
-  KeyHasher get keyHasher;
-
   bool isStoreOpen(String name);
 
   Future<SyncStore<T>> openStore<T extends Object>({
@@ -36,7 +34,6 @@ abstract class FirebaseSyncBase {
     required dynamic storageConverter,
     SyncMode syncMode = SyncMode.sync,
     ConflictResolver<T>? conflictResolver,
-    bool hashKeys = false,
   });
 
   SyncStore<T> store<T extends Object>(String name);
@@ -53,14 +50,15 @@ abstract class FirebaseSyncBase {
     required SyncObjectStore<T> localStore,
     required JsonConverter<T> jsonConverter,
     ConflictResolver<T>? conflictResolver,
-    KeyHasher? keyHasher,
   }) =>
       _syncNodes.putIfAbsent(
         storeName,
         () => SyncNode(
           storeName: storeName,
+          uuidGenerator: Uuid(options: <String, dynamic>{
+            'grng': () => cryptoService.generateRandom(16),
+          }),
           jobScheduler: syncEngine,
-          keyHasher: keyHasher,
           dataEncryptor: cryptoService,
           jsonConverter: jsonConverter,
           conflictResolver: conflictResolver ?? const ConflictResolver(),

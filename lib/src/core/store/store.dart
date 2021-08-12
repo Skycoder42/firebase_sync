@@ -18,6 +18,8 @@ abstract class Store<T extends Object> {
 
   FutureOr<T?> get(String key);
 
+  FutureOr<String> create(T value);
+
   FutureOr<void> put(String key, T value);
 
   FutureOr<T?> update(String key, UpdateFn<T> onUpdate);

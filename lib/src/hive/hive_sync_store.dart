@@ -22,7 +22,7 @@ class HiveSyncStore<T extends Object> extends HiveStore<T>
     required Box<SyncObject<T>> rawBox,
     required this.syncNode,
     required this.closeCallback,
-  }) : super(rawBox, syncNode.boundKeyHasher);
+  }) : super(rawBox, syncNode.uuidGenerator);
 
   @override
   Future<void> destroy() async {
@@ -52,7 +52,7 @@ class LazyHiveSyncStore<T extends Object> extends LazyHiveStore<T>
     required LazyBox<SyncObject<T>> rawBox,
     required this.syncNode,
     required this.closeCallback,
-  }) : super(rawBox, syncNode.boundKeyHasher);
+  }) : super(rawBox, syncNode.uuidGenerator);
 
   @override
   Future<void> destroy() async {
