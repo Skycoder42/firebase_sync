@@ -6,4 +6,6 @@ abstract class SyncStore<T extends Object>
   const SyncStore._(); // coverage:ignore-line
 
   Future<void> close();
+
+  Future<void> destroy();
 }

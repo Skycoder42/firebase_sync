@@ -16,8 +16,10 @@ import '../sodium/sodium_data_encryptor.dart';
 import '../sodium/sodium_key_manager.dart';
 import '../sodium/uuid_extension.dart';
 import 'crypto/sodium_hive_cipher.dart';
+import 'hive_offline_store.dart';
 import 'hive_sync_object_store.dart';
 import 'hive_sync_store.dart';
+import 'lazy_hive_offline_store.dart';
 import 'sync_object_adapter.dart';
 
 class FirebaseSyncHive extends FirebaseSyncBase {
@@ -143,6 +145,58 @@ class FirebaseSyncHive extends FirebaseSyncBase {
       closeCallback: () => closeSyncNode(name),
     );
   }
+
+  @override
+  Future<HiveOfflineStore<T>> openOfflineStore<T extends Object>({
+    required String name,
+    required covariant TypeAdapter<T> storageConverter,
+    KeyComparator keyComparator = defaultKeyComparator,
+    CompactionStrategy compactionStrategy = defaultCompactionStrategy,
+    bool crashRecovery = true,
+    String? path,
+  }) async {
+    hive.registerAdapter(storageConverter);
+
+    final box = await hive.openBox<T>(
+      name,
+      encryptionCipher: await _createCipher(name),
+      keyComparator: keyComparator,
+      compactionStrategy: compactionStrategy,
+      crashRecovery: crashRecovery,
+      path: path,
+    );
+
+    return HiveOfflineStore(box, sodium.uuid);
+  }
+
+  Future<LazyHiveOfflineStore<T>> openLazyOfflineStore<T extends Object>({
+    required String name,
+    required covariant TypeAdapter<T> storageConverter,
+    KeyComparator keyComparator = defaultKeyComparator,
+    CompactionStrategy compactionStrategy = defaultCompactionStrategy,
+    bool crashRecovery = true,
+    String? path,
+  }) async {
+    hive.registerAdapter(storageConverter);
+
+    final box = await hive.openLazyBox<T>(
+      name,
+      encryptionCipher: await _createCipher(name),
+      keyComparator: keyComparator,
+      compactionStrategy: compactionStrategy,
+      crashRecovery: crashRecovery,
+      path: path,
+    );
+
+    return LazyHiveOfflineStore(box, sodium.uuid);
+  }
+
+  @override
+  HiveOfflineStore<T> offlineStore<T extends Object>(String name) =>
+      HiveOfflineStore(hive.box(name), sodium.uuid);
+
+  LazyHiveOfflineStore<T> lazyOfflineStore<T extends Object>(String name) =>
+      LazyHiveOfflineStore(hive.lazyBox(name), sodium.uuid);
 
   @override
   Future<void> close() async {

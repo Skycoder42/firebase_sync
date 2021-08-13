@@ -6,10 +6,10 @@ import '../core/store/sync_object.dart';
 import '../core/sync/sync_controller_mixin.dart';
 import '../core/sync/sync_node.dart';
 import '../core/sync_store.dart';
-import 'hive_store.dart';
-import 'lazy_hive_store.dart';
+import 'hive_online_store.dart';
+import 'lazy_hive_online_store.dart';
 
-class HiveSyncStore<T extends Object> extends HiveStore<T>
+class HiveSyncStore<T extends Object> extends HiveOnlineStore<T>
     with SyncControllerMixin<T>
     implements SyncStore<T> {
   @internal
@@ -40,7 +40,7 @@ class HiveSyncStore<T extends Object> extends HiveStore<T>
   }
 }
 
-class LazyHiveSyncStore<T extends Object> extends LazyHiveStore<T>
+class LazyHiveSyncStore<T extends Object> extends LazyHiveOnlineStore<T>
     with SyncControllerMixin<T>
     implements SyncStore<T> {
   @internal

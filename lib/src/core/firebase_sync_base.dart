@@ -3,6 +3,7 @@ import 'package:meta/meta.dart';
 
 import 'crypto/crypto_firebase_store.dart';
 import 'crypto/data_encryptor.dart';
+import 'offline_store.dart';
 import 'store/sync_object_store.dart';
 import 'sync/conflict_resolver.dart';
 import 'sync/sync_engine.dart';
@@ -36,6 +37,13 @@ abstract class FirebaseSyncBase {
   });
 
   SyncStore<T> store<T extends Object>(String name);
+
+  Future<OfflineStore<T>> openOfflineStore<T extends Object>({
+    required String name,
+    required dynamic storageConverter,
+  });
+
+  OfflineStore<T> offlineStore<T extends Object>(String name);
 
   @mustCallSuper
   Future<void> close() async {

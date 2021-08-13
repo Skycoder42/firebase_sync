@@ -26,8 +26,6 @@ abstract class SyncController<T extends Object> {
     Filter? filter,
     bool multipass = true,
   });
-
-  Future<void> destroy();
 }
 
 extension SyncControllerX on SyncController {
