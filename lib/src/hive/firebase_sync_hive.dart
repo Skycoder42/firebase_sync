@@ -14,6 +14,7 @@ import '../core/sync/sync_mode.dart';
 import '../sodium/key_controller.dart';
 import '../sodium/sodium_data_encryptor.dart';
 import '../sodium/sodium_key_manager.dart';
+import '../sodium/uuid_extension.dart';
 import 'crypto/sodium_hive_cipher.dart';
 import 'hive_sync_object_store.dart';
 import 'hive_sync_store.dart';
@@ -76,6 +77,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
 
     return HiveSyncStore(
       rawBox: box,
+      uuid: sodium.uuid,
       syncNode: createSyncNode(
         storeName: name,
         localStore: HiveSyncObjectStore(box),
@@ -110,6 +112,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
 
     return LazyHiveSyncStore(
       rawBox: box,
+      uuid: sodium.uuid,
       syncNode: createSyncNode(
         storeName: name,
         localStore: LazyHiveSyncObjectStore(box),
@@ -125,6 +128,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
     final syncNode = getSyncNode<T>(name);
     return HiveSyncStore(
       rawBox: hive.box(name),
+      uuid: sodium.uuid,
       syncNode: syncNode,
       closeCallback: () => closeSyncNode(name),
     );
@@ -134,6 +138,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
     final syncNode = getSyncNode<T>(name);
     return LazyHiveSyncStore(
       rawBox: hive.lazyBox(name),
+      uuid: sodium.uuid,
       syncNode: syncNode,
       closeCallback: () => closeSyncNode(name),
     );

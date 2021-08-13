@@ -1,6 +1,5 @@
 import 'package:firebase_database_rest/firebase_database_rest.dart';
 import 'package:meta/meta.dart';
-import 'package:uuid/uuid.dart';
 
 import 'crypto/crypto_firebase_store.dart';
 import 'crypto/data_encryptor.dart';
@@ -55,9 +54,6 @@ abstract class FirebaseSyncBase {
         storeName,
         () => SyncNode(
           storeName: storeName,
-          uuidGenerator: Uuid(options: <String, dynamic>{
-            'grng': () => cryptoService.generateRandom(16),
-          }),
           jobScheduler: syncEngine,
           dataEncryptor: cryptoService,
           jsonConverter: jsonConverter,

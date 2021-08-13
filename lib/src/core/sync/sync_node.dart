@@ -1,5 +1,4 @@
 import 'package:firebase_database_rest/firebase_database_rest.dart';
-import 'package:uuid/uuid.dart';
 
 import '../crypto/crypto_firebase_store.dart';
 import '../crypto/data_encryptor.dart';
@@ -10,7 +9,6 @@ import 'job_scheduler.dart';
 class SyncNode<T extends Object> {
   final String storeName;
   final JobScheduler jobScheduler;
-  final Uuid uuidGenerator;
   final DataEncryptor dataEncryptor;
   final JsonConverter<T> jsonConverter;
   final ConflictResolver<T> conflictResolver;
@@ -20,7 +18,6 @@ class SyncNode<T extends Object> {
   const SyncNode({
     required this.storeName,
     required this.jobScheduler,
-    required this.uuidGenerator,
     required this.dataEncryptor,
     required this.jsonConverter,
     required this.conflictResolver,

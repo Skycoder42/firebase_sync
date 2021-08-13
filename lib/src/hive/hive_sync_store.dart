@@ -1,5 +1,6 @@
 import 'package:hive/hive.dart';
 import 'package:meta/meta.dart';
+import 'package:uuid/uuid.dart';
 
 import '../core/store/sync_object.dart';
 import '../core/sync/sync_controller_mixin.dart';
@@ -20,9 +21,10 @@ class HiveSyncStore<T extends Object> extends HiveStore<T>
 
   HiveSyncStore({
     required Box<SyncObject<T>> rawBox,
+    required Uuid uuid,
     required this.syncNode,
     required this.closeCallback,
-  }) : super(rawBox, syncNode.uuidGenerator);
+  }) : super(rawBox, uuid);
 
   @override
   Future<void> destroy() async {
@@ -50,9 +52,10 @@ class LazyHiveSyncStore<T extends Object> extends LazyHiveStore<T>
 
   LazyHiveSyncStore({
     required LazyBox<SyncObject<T>> rawBox,
+    required Uuid uuid,
     required this.syncNode,
     required this.closeCallback,
-  }) : super(rawBox, syncNode.uuidGenerator);
+  }) : super(rawBox, uuid);
 
   @override
   Future<void> destroy() async {
