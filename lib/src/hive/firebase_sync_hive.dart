@@ -11,7 +11,7 @@ import '../core/store/sync_object.dart';
 import '../core/sync/conflict_resolver.dart';
 import '../core/sync/sync_engine.dart';
 import '../core/sync/sync_mode.dart';
-import '../sodium/key_controller.dart';
+import '../sodium/key_source.dart';
 import '../sodium/sodium_data_encryptor.dart';
 import '../sodium/sodium_key_manager.dart';
 import '../sodium/uuid_extension.dart';
@@ -25,10 +25,10 @@ import 'sync_object_adapter.dart';
 class FirebaseSyncHive extends FirebaseSyncBase {
   final HiveInterface hive;
   final Sodium sodium;
-  final KeyController keyController;
+  final KeySource keySource;
 
   late final SodiumKeyManager keyManager = SodiumKeyManager(
-    keyController: keyController,
+    keySource: keySource,
     sodium: sodium,
   );
 
@@ -44,7 +44,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
   FirebaseSyncHive({
     required this.hive,
     required this.sodium,
-    required this.keyController,
+    required this.keySource,
     required this.rootStore,
     int parallelJobs = SyncEngine.defaultParallelJobs,
   }) : super(

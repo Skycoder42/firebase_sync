@@ -21,9 +21,6 @@ class SodiumDataEncryptor implements DataEncryptor {
   });
 
   @override
-  Uint8List generateRandom(int length) => sodium.randombytes.buf(length);
-
-  @override
   Future<CipherMessage> encrypt({
     required String storeName,
     required Uri remoteUri,
