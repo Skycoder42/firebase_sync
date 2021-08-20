@@ -4,6 +4,7 @@ import 'package:hive/hive.dart';
 import 'package:hive/src/box/default_compaction_strategy.dart';
 // ignore: implementation_imports
 import 'package:hive/src/box/default_key_comparator.dart';
+import 'package:meta/meta.dart';
 import 'package:sodium/sodium.dart';
 
 import '../core/firebase_sync_base.dart';
@@ -27,17 +28,17 @@ class FirebaseSyncHive extends FirebaseSyncBase {
   final Sodium sodium;
   final KeySource keySource;
 
-  late final SodiumKeyManager keyManager = SodiumKeyManager(
+  final String? localId;
+
+  @override
+  final FirebaseStore<dynamic> rootStore;
+
+  late final SodiumKeyManager _keyManager = SodiumKeyManager(
     keySource: keySource,
     sodium: sodium,
     database: rootStore.restApi.database,
     localId: localId,
   );
-
-  final String localId; // TODO make optional, dynamic
-
-  @override
-  final FirebaseStore<dynamic> rootStore;
 
   FirebaseSyncHive({
     required this.hive,
@@ -46,7 +47,11 @@ class FirebaseSyncHive extends FirebaseSyncBase {
     required this.localId,
     required this.rootStore,
     int parallelJobs = SyncEngine.defaultParallelJobs,
-  }) : super(
+  })  : assert(
+          localId != null || rootStore.restApi.idToken == null,
+          'If the rootStore uses authentication, a localId is required',
+        ),
+        super(
           parallelJobs: parallelJobs,
         );
 
@@ -85,7 +90,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
         jsonConverter: jsonConverter,
         dataEncryptor: SodiumDataEncryptor(
           sodium: sodium,
-          keyManager: keyManager,
+          keyManager: _keyManager,
           storeId: storageConverter.typeId,
         ),
         conflictResolver: conflictResolver,
@@ -125,7 +130,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
         jsonConverter: jsonConverter,
         dataEncryptor: SodiumDataEncryptor(
           sodium: sodium,
-          keyManager: keyManager,
+          keyManager: _keyManager,
           storeId: storageConverter.typeId,
         ),
         conflictResolver: conflictResolver,
@@ -208,9 +213,11 @@ class FirebaseSyncHive extends FirebaseSyncBase {
       LazyHiveOfflineStore(hive.lazyBox(name), sodium.uuid);
 
   @override
+  @mustCallSuper
   Future<void> close() async {
     await super.close();
     await hive.close();
+    _keyManager.dispose();
   }
 
   void _registerTypeAdapter<T extends Object>(TypeAdapter<T> hiveAdapter) {
@@ -221,7 +228,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
 
   Future<HiveCipher> _createCipher(int storeId) async => SodiumHiveCipher(
         sodium: sodium,
-        encryptionKey: await keyManager.localEncryptionKey(
+        encryptionKey: await _keyManager.localEncryptionKey(
           storeId: storeId,
           keyBytes: SodiumHiveCipher.keyBytes(sodium),
         ),

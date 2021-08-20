@@ -76,12 +76,12 @@ void main() {
       verify(() => sutMock.execute()).called(1);
     });
 
-    test('result returns success if execute returns true', () {
+    test('result returns success if execute returns success', () {
       expect(sut.call(), completes);
       expect(sut.result, completion(SyncJobResult.success));
     });
 
-    test('result returns noop if execute returns false', () {
+    test('result returns noop if execute returns noop', () {
       when(() => sutMock.execute())
           .thenAnswer((i) async => const SyncJobExecutionResult.noop());
 
@@ -95,6 +95,18 @@ void main() {
       expect(sut.call, throwsA(isA<Exception>()));
 
       expect(sut.result, completion(SyncJobResult.failure));
+    });
+
+    test('returns result of next job if specified', () {
+      const result = SyncJobResult.aborted;
+      final nextJob = MockSyncJob();
+      when(() => nextJob.result).thenAnswer((i) async => result);
+
+      when(() => sutMock.execute())
+          .thenAnswer((i) async => SyncJobExecutionResult.next(nextJob));
+
+      expect(sut.call(), completes);
+      expect(sut.result, completion(SyncJobResult.aborted));
     });
 
     test('result returns abort if aborted', () {

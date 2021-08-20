@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:sodium/sodium.dart';
-import 'package:tuple/tuple.dart';
 
 import 'key_source.dart';
 
@@ -26,16 +25,14 @@ class SodiumKeyManager {
   final Sodium sodium;
   final KeySource keySource;
   final String database;
-  final String localId;
+  final String? localId;
 
   Duration lockTimeout;
+  Timer? _lockoutTimer;
 
   SecureKey? _cachedLocalMasterKey;
   SecureKey? _cachedRemoteMasterKey;
   final _cachedRemoteRotationKeys = <int, SecureKey>{};
-  Timer? _lockoutTimer;
-
-  final _remoteKeys = <Tuple2<int, int>, SecureKey>{};
 
   SodiumKeyManager({
     required this.sodium,
@@ -45,14 +42,7 @@ class SodiumKeyManager {
     this.lockTimeout = defaultLockTimeout,
   });
 
-  void dispose() {
-    _clearKeys();
-
-    for (final key in _remoteKeys.values) {
-      key.dispose();
-    }
-    _remoteKeys.clear();
-  }
+  void dispose() => _clearKeys();
 
   Future<SecureKey> localEncryptionKey({
     required int storeId,
@@ -71,17 +61,13 @@ class SodiumKeyManager {
     required int keyId,
     required int storeId,
     required int keyBytes,
-  }) async {
-    final key = Tuple2(keyId, storeId);
-    _remoteKeys[key] ??= sodium.crypto.kdf.deriveFromKey(
-      masterKey: await _obtainRemoteRotationKey(keyId),
-      context: _remoteRotationKeyContext,
-      subkeyId: storeId,
-      subkeyLen: keyBytes,
-    );
-
-    return _remoteKeys[key]!;
-  }
+  }) async =>
+      sodium.crypto.kdf.deriveFromKey(
+        masterKey: await _obtainRemoteRotationKey(keyId),
+        context: _remoteRotationKeyContext,
+        subkeyId: storeId,
+        subkeyLen: keyBytes,
+      );
 
   Future<SecureKey> _obtainLocalMasterKey() async {
     _cachedLocalMasterKey ??= await keySource.obtainMasterKey(

@@ -13,7 +13,7 @@ class KeyType with _$KeyType {
   const factory KeyType.remote({
     required int bytes,
     required String database,
-    required String localId,
+    required String? localId,
   }) = RemoteKeyType;
 
   factory KeyType.fromJson(Map<String, dynamic> json) =>

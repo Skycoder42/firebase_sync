@@ -45,8 +45,11 @@ abstract class FirebaseSyncBase {
 
   @mustCallSuper
   Future<void> close() async {
-    _syncNodes.clear();
     await syncEngine.dispose();
+    for (final node in _syncNodes.values) {
+      node.dispose();
+    }
+    _syncNodes.clear();
   }
 
   @protected
