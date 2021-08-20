@@ -24,8 +24,6 @@ abstract class KeySource {
   const KeySource._();
 
   Future<SecureKey> obtainMasterKey(KeyType keyType);
-
-  int keyIdForStoreName(String name);
 }
 
 abstract class PersistentKeySource implements KeySource {

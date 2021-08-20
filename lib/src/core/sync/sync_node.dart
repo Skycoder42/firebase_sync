@@ -24,4 +24,8 @@ class SyncNode<T extends Object> {
     required this.localStore,
     required this.remoteStore,
   });
+
+  void dispose() {
+    dataEncryptor.dispose();
+  }
 }

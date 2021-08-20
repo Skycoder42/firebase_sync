@@ -1,30 +1,23 @@
 import 'dart:async';
 
 import 'package:sodium/sodium.dart';
+import 'package:tuple/tuple.dart';
 
 import 'key_source.dart';
 
-class KeyManagerLockedError extends StateError {
-  KeyManagerLockedError()
-      : super('KeyManager is locked! Call SodiumKeyManager.unlock first');
-}
-
-class InvalidRemoteEncryptionKeyId implements Exception {
-  final int keyId;
-
-  InvalidRemoteEncryptionKeyId(this.keyId);
-
-  @override
-  String toString() => 'Invalid remote key encrption key id: $keyId';
-}
-
+/// logic
+///
+/// ```.txt
+/// localMasterKey (cache)
+///   \-localKey<n:storeName>
+/// remoteMasterKey (cache)
+///   \-remoteStoreKey<m:date> (cache)
+///       \-remoteKey<m,n:storeName> (cache+)
+/// ```
 class SodiumKeyManager {
-  static const _rootContext = 'fbs_root';
-  static const _localEncryptionKeyContext = 'fbslocal';
-  static const _remoteEncryptionKeyContext = 'fbs_sync';
-
-  static const _localEncryptionKeyId = 0;
-  static const _remoteEncryptionKeyOffset = 1;
+  static const _localMasterKeyContext = 'fbslocal';
+  static const _remoteMasterKeyContext = 'fbs_sync';
+  static const _remoteRotationKeyContext = 'fbss_rot';
 
   static const _daysPerMonth = 30;
 
@@ -32,119 +25,101 @@ class SodiumKeyManager {
 
   final Sodium sodium;
   final KeySource keySource;
+  final String database;
+  final String localId;
 
   Duration lockTimeout;
 
-  SecureKey? _localEncryptionKey;
-  final _remoteEncryptionKeys = <int, SecureKey>{};
-  int? _currentKeyId;
+  SecureKey? _cachedLocalMasterKey;
+  SecureKey? _cachedRemoteMasterKey;
+  final _cachedRemoteRotationKeys = <int, SecureKey>{};
+  Timer? _lockoutTimer;
+
+  final _remoteKeys = <Tuple2<int, int>, SecureKey>{};
 
   SodiumKeyManager({
     required this.sodium,
     required this.keySource,
+    required this.database,
+    required this.localId,
     this.lockTimeout = defaultLockTimeout,
   });
 
   void dispose() {
-    _localEncryptionKey?.dispose();
-    for (final key in _remoteEncryptionKeys.values) {
+    _clearKeys();
+
+    for (final key in _remoteKeys.values) {
       key.dispose();
     }
+    _remoteKeys.clear();
   }
 
-  Future<void> unlock({
-    DateTime? now,
-  }) async {
-    final masterKey = await _generateMasterKey();
-    try {
-      _localEncryptionKey = sodium.crypto.kdf.deriveFromKey(
-        masterKey: masterKey,
-        context: _rootContext,
-        subkeyId: _localEncryptionKeyId,
-        subkeyLen: sodium.crypto.kdf.keyBytes,
+  Future<SecureKey> localEncryptionKey({
+    required int storeId,
+    required int keyBytes,
+  }) async =>
+      sodium.crypto.kdf.deriveFromKey(
+        masterKey: await _obtainLocalMasterKey(),
+        context: _localMasterKeyContext,
+        subkeyId: storeId,
+        subkeyLen: keyBytes,
       );
 
-      final currentKeyId = _keyIdForDate(now ?? DateTime.now().toUtc());
-      _remoteEncryptionKeys[currentKeyId] = sodium.crypto.kdf.deriveFromKey(
-        masterKey: masterKey,
-        context: _rootContext,
-        subkeyId: currentKeyId,
-        subkeyLen: sodium.crypto.kdf.keyBytes,
-      );
-      _currentKeyId = currentKeyId;
-    } finally {
-      masterKey.dispose();
-    }
-  }
+  int get currentRemoteKeyId => _keyIdForDate(DateTime.now().toUtc());
 
-  SecureKey localEncryptionKey({
-    required String storeName,
-    required int keyBytes,
-  }) {
-    if (_localEncryptionKey == null) {
-      throw KeyManagerLockedError();
-    }
-
-    return sodium.crypto.kdf.deriveFromKey(
-      masterKey: _localEncryptionKey!,
-      context: _localEncryptionKeyContext,
-      subkeyId: keySource.keyIdForStoreName(storeName),
-      subkeyLen: keyBytes,
-    );
-  }
-
-  MapEntry<int, SecureKey> remoteEncryptionKey({
-    required String storeName,
-    required int keyBytes,
-  }) {
-    if (_currentKeyId == null ||
-        !_remoteEncryptionKeys.containsKey(_currentKeyId)) {
-      throw KeyManagerLockedError();
-    }
-
-    final key = sodium.crypto.kdf.deriveFromKey(
-      masterKey: _remoteEncryptionKeys[_currentKeyId!]!,
-      context: _remoteEncryptionKeyContext,
-      subkeyId: keySource.keyIdForStoreName(storeName),
-      subkeyLen: keyBytes,
-    );
-
-    return MapEntry(_currentKeyId!, key);
-  }
-
-  Future<SecureKey> remoteEncryptionKeyForId({
-    required String storeName,
+  Future<SecureKey> remoteEncryptionKey({
     required int keyId,
+    required int storeId,
     required int keyBytes,
   }) async {
-    if (keyId < _remoteEncryptionKeyOffset) {
-      throw InvalidRemoteEncryptionKeyId(keyId);
-    }
-
-    if (!_remoteEncryptionKeys.containsKey(keyId)) {
-      final masterKey = await _generateMasterKey();
-      try {
-        _remoteEncryptionKeys[keyId] = sodium.crypto.kdf.deriveFromKey(
-          masterKey: masterKey,
-          context: _rootContext,
-          subkeyId: keyId,
-          subkeyLen: sodium.crypto.kdf.keyBytes,
-        );
-      } finally {
-        masterKey.dispose();
-      }
-    }
-
-    return sodium.crypto.kdf.deriveFromKey(
-      masterKey: _remoteEncryptionKeys[keyId]!,
-      context: _remoteEncryptionKeyContext,
-      subkeyId: keySource.keyIdForStoreName(storeName),
+    final key = Tuple2(keyId, storeId);
+    _remoteKeys[key] ??= sodium.crypto.kdf.deriveFromKey(
+      masterKey: await _obtainRemoteRotationKey(keyId),
+      context: _remoteRotationKeyContext,
+      subkeyId: storeId,
       subkeyLen: keyBytes,
     );
+
+    return _remoteKeys[key]!;
   }
 
-  Future<SecureKey> _generateMasterKey() async {
-    throw UnimplementedError();
+  Future<SecureKey> _obtainLocalMasterKey() async {
+    _cachedLocalMasterKey ??= await keySource.obtainMasterKey(
+      KeyType.local(bytes: sodium.crypto.kdf.keyBytes),
+    );
+    _resetTimer();
+
+    return _cachedLocalMasterKey!;
+  }
+
+  Future<SecureKey> _obtainRemoteMasterKey() async {
+    _cachedRemoteMasterKey ??= await keySource.obtainMasterKey(
+      KeyType.remote(
+        bytes: sodium.crypto.kdf.keyBytes,
+        database: database,
+        localId: localId,
+      ),
+    );
+    _resetTimer();
+
+    return _cachedRemoteMasterKey!;
+  }
+
+  Future<SecureKey> _obtainRemoteRotationKey(int keyId) async {
+    _cachedRemoteRotationKeys[keyId] ??= sodium.crypto.kdf.deriveFromKey(
+      masterKey: await _obtainRemoteMasterKey(),
+      context: _remoteMasterKeyContext,
+      subkeyId: keyId,
+      subkeyLen: sodium.crypto.kdf.keyBytes,
+    );
+    _resetTimer();
+
+    return _cachedRemoteRotationKeys[keyId]!;
+  }
+
+  void _resetTimer() {
+    _lockoutTimer?.cancel();
+    _lockoutTimer = Timer(lockTimeout, _clearKeys);
   }
 
   int _keyIdForDate(DateTime dateTime) {
@@ -152,6 +127,21 @@ class SodiumKeyManager {
       milliseconds: dateTime.millisecondsSinceEpoch,
     );
     final monthsSinceEpoche = durationSinceEpoche.inDays ~/ _daysPerMonth;
-    return _remoteEncryptionKeyOffset + monthsSinceEpoche;
+    return monthsSinceEpoche;
+  }
+
+  void _clearKeys() {
+    _cachedLocalMasterKey?.dispose();
+    _cachedRemoteMasterKey?.dispose();
+    for (final key in _cachedRemoteRotationKeys.values) {
+      key.dispose();
+    }
+
+    _cachedLocalMasterKey = null;
+    _cachedRemoteMasterKey = null;
+    _cachedRemoteRotationKeys.clear();
+
+    _lockoutTimer?.cancel();
+    _lockoutTimer = null;
   }
 }

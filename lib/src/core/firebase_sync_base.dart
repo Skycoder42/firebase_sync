@@ -24,8 +24,6 @@ abstract class FirebaseSyncBase {
 
   FirebaseStore<dynamic> get rootStore;
 
-  DataEncryptor get cryptoService;
-
   bool isStoreOpen(String name);
 
   Future<SyncStore<T>> openStore<T extends Object>({
@@ -56,6 +54,7 @@ abstract class FirebaseSyncBase {
     required String storeName,
     required SyncObjectStore<T> localStore,
     required JsonConverter<T> jsonConverter,
+    required DataEncryptor dataEncryptor,
     ConflictResolver<T>? conflictResolver,
   }) =>
       _syncNodes.putIfAbsent(
@@ -63,7 +62,7 @@ abstract class FirebaseSyncBase {
         () => SyncNode(
           storeName: storeName,
           jobScheduler: syncEngine,
-          dataEncryptor: cryptoService,
+          dataEncryptor: dataEncryptor,
           jsonConverter: jsonConverter,
           conflictResolver: conflictResolver ?? const ConflictResolver(),
           localStore: localStore,
@@ -86,6 +85,7 @@ abstract class FirebaseSyncBase {
 
   @protected
   void closeSyncNode(String storeName) {
-    _syncNodes.remove(storeName);
+    final node = _syncNodes.remove(storeName);
+    node?.dispose();
   }
 }

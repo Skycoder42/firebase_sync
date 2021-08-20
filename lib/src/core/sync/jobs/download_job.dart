@@ -52,7 +52,6 @@ class DownloadJob<T extends Object> extends SyncJob
   ) async {
     // decrypt remote data
     final dynamic plainJson = await syncNode.dataEncryptor.decrypt(
-      storeName: syncNode.storeName,
       remoteUri: syncNode.remoteStore.remoteUri(key),
       data: remoteCipher,
     );

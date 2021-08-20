@@ -30,13 +30,11 @@ class FirebaseSyncHive extends FirebaseSyncBase {
   late final SodiumKeyManager keyManager = SodiumKeyManager(
     keySource: keySource,
     sodium: sodium,
+    database: rootStore.restApi.database,
+    localId: localId,
   );
 
-  @override
-  late final SodiumDataEncryptor cryptoService = SodiumDataEncryptor(
-    sodium: sodium,
-    keyManager: keyManager,
-  );
+  final String localId; // TODO make optional, dynamic
 
   @override
   final FirebaseStore<dynamic> rootStore;
@@ -45,6 +43,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
     required this.hive,
     required this.sodium,
     required this.keySource,
+    required this.localId,
     required this.rootStore,
     int parallelJobs = SyncEngine.defaultParallelJobs,
   }) : super(
@@ -70,7 +69,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
 
     final box = await hive.openBox<SyncObject<T>>(
       name,
-      encryptionCipher: await _createCipher(name),
+      encryptionCipher: await _createCipher(storageConverter.typeId),
       keyComparator: keyComparator,
       compactionStrategy: compactionStrategy,
       crashRecovery: crashRecovery,
@@ -84,6 +83,11 @@ class FirebaseSyncHive extends FirebaseSyncBase {
         storeName: name,
         localStore: HiveSyncObjectStore(box),
         jsonConverter: jsonConverter,
+        dataEncryptor: SodiumDataEncryptor(
+          sodium: sodium,
+          keyManager: keyManager,
+          storeId: storageConverter.typeId,
+        ),
         conflictResolver: conflictResolver,
       ),
       closeCallback: () => closeSyncNode(name),
@@ -105,7 +109,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
 
     final box = await hive.openLazyBox<SyncObject<T>>(
       name,
-      encryptionCipher: await _createCipher(name),
+      encryptionCipher: await _createCipher(storageConverter.typeId),
       keyComparator: keyComparator,
       compactionStrategy: compactionStrategy,
       crashRecovery: crashRecovery,
@@ -119,6 +123,11 @@ class FirebaseSyncHive extends FirebaseSyncBase {
         storeName: name,
         localStore: LazyHiveSyncObjectStore(box),
         jsonConverter: jsonConverter,
+        dataEncryptor: SodiumDataEncryptor(
+          sodium: sodium,
+          keyManager: keyManager,
+          storeId: storageConverter.typeId,
+        ),
         conflictResolver: conflictResolver,
       ),
       closeCallback: () => closeSyncNode(name),
@@ -159,7 +168,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
 
     final box = await hive.openBox<T>(
       name,
-      encryptionCipher: await _createCipher(name),
+      encryptionCipher: await _createCipher(storageConverter.typeId),
       keyComparator: keyComparator,
       compactionStrategy: compactionStrategy,
       crashRecovery: crashRecovery,
@@ -181,7 +190,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
 
     final box = await hive.openLazyBox<T>(
       name,
-      encryptionCipher: await _createCipher(name),
+      encryptionCipher: await _createCipher(storageConverter.typeId),
       keyComparator: keyComparator,
       compactionStrategy: compactionStrategy,
       crashRecovery: crashRecovery,
@@ -210,10 +219,10 @@ class FirebaseSyncHive extends FirebaseSyncBase {
     );
   }
 
-  Future<HiveCipher> _createCipher(String storeName) async => SodiumHiveCipher(
+  Future<HiveCipher> _createCipher(int storeId) async => SodiumHiveCipher(
         sodium: sodium,
-        encryptionKey: keyManager.localEncryptionKey(
-          storeName: storeName,
+        encryptionKey: await keyManager.localEncryptionKey(
+          storeId: storeId,
           keyBytes: SodiumHiveCipher.keyBytes(sodium),
         ),
       );

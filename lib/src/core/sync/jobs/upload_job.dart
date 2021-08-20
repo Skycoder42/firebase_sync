@@ -73,7 +73,6 @@ class UploadJob<T extends Object> extends SyncJob
   ) async {
     // encrypt
     final cipher = await syncNode.dataEncryptor.encrypt(
-      storeName: syncNode.storeName,
       remoteUri: syncNode.remoteStore.remoteUri(key),
       dataJson: syncNode.jsonConverter.dataToJson(localEntry.value!),
     );
@@ -135,7 +134,6 @@ class UploadJob<T extends Object> extends SyncJob
     final T? remoteData;
     if (transaction.value != null) {
       final dynamic jsonData = await syncNode.dataEncryptor.decrypt(
-        storeName: syncNode.storeName,
         remoteUri: syncNode.remoteStore.remoteUri(key),
         data: transaction.value!,
       );

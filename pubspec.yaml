@@ -14,8 +14,9 @@ dependencies:
   json_annotation: ^4.1.0
   meta: ^1.7.0
   path: ^1.8.0
-  sodium: ^1.0.0
+  sodium: ^1.1.0
   synchronized: ^3.0.0
+  tuple: ^2.0.0
   uuid: ^3.0.4
 
 dev_dependencies:
@@ -26,10 +27,9 @@ dev_dependencies:
   freezed: ^0.14.2
   hive_generator: ^1.1.0
   json_serializable: ^4.1.4
-  lint: ^1.5.3
+  lint: ^1.6.0
   mocktail: ^0.1.4
-  test: ^1.17.10
-  tuple: ^2.0.0
+  test: ^1.17.11
   dart_test_tools:
     git: https://github.com/Skycoder42/dart_test_tools.git
 
