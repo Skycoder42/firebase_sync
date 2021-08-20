@@ -1,55 +1,64 @@
 import 'dart:typed_data';
 
+import 'package:meta/meta.dart';
+
 import '../../crypto/cipher_message.dart';
 import '../../store/sync_object.dart';
 import '../../store/update_action.dart';
-import '../job_scheduler.dart';
 import '../sync_job.dart';
 import '../sync_node.dart';
 import 'conflict_resolver_mixin.dart';
 import 'upload_job.dart';
 
-class DownloadJob<T extends Object> extends SyncJob
+@visibleForTesting
+abstract class DownloadJobBase<T extends Object> extends SyncJob
     with ConflictResolverMixin<T> {
   final SyncNode<T> syncNode;
   final bool conflictsTriggerUpload;
 
-  @override
-  final String key;
-  final CipherMessage? remoteCipher;
-
-  DownloadJob({
+  DownloadJobBase({
     required this.syncNode,
-    required this.key,
-    required this.remoteCipher,
     required this.conflictsTriggerUpload,
   });
 
-  @override
-  String get storeName => syncNode.storeName;
-
-  @override
-  Future<SyncJobExecutionResult> execute() async {
-    final _DownloadResult downloadResult;
-    if (remoteCipher != null) {
-      downloadResult = await _updateLocal(remoteCipher!);
-    } else {
-      downloadResult = await _deleteLocal();
+  @protected
+  ExecutionResult getResult({
+    required String key,
+    required bool modified,
+    required bool hasConflict,
+  }) {
+    if (conflictsTriggerUpload && hasConflict) {
+      return ExecutionResult.continued(
+        UploadJob(
+          syncNode: syncNode,
+          key: key,
+          multipass: false,
+        ),
+      );
     }
 
-    // trigger upload if locally changed
-    if (conflictsTriggerUpload && downloadResult.hasConflict) {
-      return _scheduleUpload(syncNode.jobScheduler);
-    }
-
-    return downloadResult.modified
-        ? const SyncJobExecutionResult.success()
-        : const SyncJobExecutionResult.noop();
+    return modified
+        ? const ExecutionResult.modified()
+        : const ExecutionResult.noop();
   }
+}
 
-  Future<_DownloadResult> _updateLocal(
-    CipherMessage remoteCipher,
-  ) async {
+class DownloadUpdateJob<T extends Object> extends DownloadJobBase<T> {
+  final String key;
+  final CipherMessage remoteCipher;
+
+  DownloadUpdateJob({
+    required this.key,
+    required this.remoteCipher,
+    required SyncNode<T> syncNode,
+    required bool conflictsTriggerUpload,
+  }) : super(
+          syncNode: syncNode,
+          conflictsTriggerUpload: conflictsTriggerUpload,
+        );
+
+  @override
+  Future<ExecutionResult> execute() async {
     // decrypt remote data
     final dynamic plainJson = await syncNode.dataEncryptor.decrypt(
       remoteUri: syncNode.remoteStore.remoteUri(key),
@@ -92,13 +101,28 @@ class DownloadJob<T extends Object> extends SyncJob
       },
     );
 
-    return _DownloadResult(
+    return getResult(
+      key: key,
       modified: oldRemoteTag != updatedEntry.remoteTagOrDefault,
       hasConflict: updatedEntry.locallyModified,
     );
   }
+}
 
-  Future<_DownloadResult> _deleteLocal() async {
+class DownloadDeleteJob<T extends Object> extends DownloadJobBase<T> {
+  final String key;
+
+  DownloadDeleteJob({
+    required this.key,
+    required SyncNode<T> syncNode,
+    required bool conflictsTriggerUpload,
+  }) : super(
+          syncNode: syncNode,
+          conflictsTriggerUpload: conflictsTriggerUpload,
+        );
+
+  @override
+  Future<ExecutionResult> execute() async {
     // update locally
     late final Uint8List oldRemoteTag;
     final updatedEntry = await syncNode.localStore.update(
@@ -128,30 +152,10 @@ class DownloadJob<T extends Object> extends SyncJob
       },
     );
 
-    return _DownloadResult(
+    return getResult(
+      key: key,
       modified: oldRemoteTag != updatedEntry.remoteTagOrDefault,
       hasConflict: updatedEntry.locallyModified,
     );
   }
-
-  SyncJobExecutionResult _scheduleUpload(JobScheduler scheduler) {
-    final uploadJob = UploadJob(
-      syncNode: syncNode,
-      key: key,
-      multipass: false,
-    );
-    // ignore: unawaited_futures
-    syncNode.jobScheduler.addJob(uploadJob);
-    return SyncJobExecutionResult.next(uploadJob);
-  }
-}
-
-class _DownloadResult {
-  final bool modified;
-  final bool hasConflict;
-
-  _DownloadResult({
-    required this.modified,
-    required this.hasConflict,
-  });
 }

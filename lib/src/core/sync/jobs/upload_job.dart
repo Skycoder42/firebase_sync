@@ -3,7 +3,6 @@ import 'package:firebase_database_rest/firebase_database_rest.dart';
 import '../../crypto/cipher_message.dart';
 import '../../store/sync_object.dart';
 import '../../store/update_action.dart';
-import '../job_scheduler.dart';
 import '../sync_job.dart';
 import '../sync_node.dart';
 import 'conflict_resolver_mixin.dart';
@@ -13,6 +12,8 @@ class UploadJob<T extends Object> extends SyncJob
   final SyncNode<T> syncNode;
   final bool multipass;
 
+  final String key;
+
   UploadJob({
     required this.syncNode,
     required this.key,
@@ -20,17 +21,11 @@ class UploadJob<T extends Object> extends SyncJob
   });
 
   @override
-  String get storeName => syncNode.storeName;
-
-  @override
-  final String key;
-
-  @override
-  Future<SyncJobExecutionResult> execute() async {
+  Future<ExecutionResult> execute() async {
     // check if entry needs to be uploaded
     var localEntry = await syncNode.localStore.get(key);
     if (!localEntry.locallyModified) {
-      return const SyncJobExecutionResult.noop();
+      return const ExecutionResult.noop();
     }
 
     // begin transaction
@@ -42,7 +37,7 @@ class UploadJob<T extends Object> extends SyncJob
     if (localEntry!.remoteTag != remoteTag) {
       localEntry = await _resolveConflict(transaction);
       if (!localEntry.locallyModified) {
-        return const SyncJobExecutionResult.success();
+        return const ExecutionResult.modified();
       }
     }
 
@@ -57,13 +52,13 @@ class UploadJob<T extends Object> extends SyncJob
 
       // schedule another upload job if partially uploaded and multipass
       if (multipass && stillModified) {
-        return _reschedule(syncNode.jobScheduler);
+        return _reschedule();
       }
 
-      return const SyncJobExecutionResult.success();
+      return const ExecutionResult.modified();
     } on TransactionFailedException {
       // reschedule "this" job to try again -> will lead to a conflict resoltion
-      return _reschedule(syncNode.jobScheduler);
+      return _reschedule();
     }
   }
 
@@ -160,13 +155,11 @@ class UploadJob<T extends Object> extends SyncJob
     );
   }
 
-  SyncJobExecutionResult _reschedule(JobScheduler scheduler) {
-    final job = UploadJob(
-      syncNode: syncNode,
-      key: key,
-      multipass: multipass,
-    );
-    scheduler.addJob(job);
-    return SyncJobExecutionResult.next(job);
-  }
+  ExecutionResult _reschedule() => ExecutionResult.continued(
+        UploadJob(
+          syncNode: syncNode,
+          key: key,
+          multipass: multipass,
+        ),
+      );
 }

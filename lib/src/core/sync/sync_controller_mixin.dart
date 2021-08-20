@@ -1,15 +1,19 @@
+import 'dart:async';
+
 import 'package:firebase_database_rest/firebase_database_rest.dart';
 import 'package:meta/meta.dart';
 
 import '../crypto/cipher_message.dart';
 import '../store/sync_object.dart';
-import 'job_scheduler.dart';
+import 'download_job_transformer.dart';
 import 'jobs/download_job.dart';
+import 'jobs/reset_job_collection.dart';
 import 'jobs/upload_job.dart';
 import 'sync_controller.dart';
 import 'sync_job.dart';
 import 'sync_mode.dart';
 import 'sync_node.dart';
+import 'upload_job_transformer.dart';
 
 mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
   @visibleForOverriding
@@ -18,8 +22,8 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
   SyncMode _syncMode = SyncMode.none;
   Filter? _syncFilter;
   bool _autoRenew = true;
-  StreamCancallationToken? _uploadToken;
-  StreamCancallationToken? _downloadToken;
+  StreamSubscription<void>? _uploadSub;
+  StreamSubscription<void>? _downloadSub;
 
   @override
   SyncMode get syncMode => _syncMode;
@@ -33,7 +37,7 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
   @override
   Future<void> setSyncFilter(Filter? filter) async {
     _syncFilter = filter;
-    if (_downloadToken != null) {
+    if (_downloadSub != null) {
       await _stopDownsync();
       await _startDownsync();
     }
@@ -90,7 +94,7 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
     }
 
     _autoRenew = autoRenew;
-    if (_downloadToken != null) {
+    if (_downloadSub != null) {
       await _stopDownsync();
       await _startDownsync();
     }
@@ -105,37 +109,30 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
         ? await syncNode.remoteStore.query(filter)
         : await syncNode.remoteStore.all();
 
-    final jobResults = await syncNode.jobScheduler.addJobs(
-      entries.entries
-          .map(
-            (entry) => DownloadJob(
-              syncNode: syncNode,
-              key: entry.key,
-              remoteCipher: entry.value,
-              conflictsTriggerUpload: conflictsTriggerUpload,
-            ),
-          )
-          .toList(),
-    );
-
-    return jobResults.successCount();
+    return syncNode.syncJobExecutor
+        .addCollection(
+          ResetJobCollection(
+            syncNode: syncNode,
+            data: entries,
+          ),
+        )
+        .successCount();
   }
 
   @override
   Future<int> upload({bool multipass = true}) async {
     final entries = await syncNode.localStore.listEntries();
-    final jobResults = await syncNode.jobScheduler.addJobs(
-      entries.entries
-          .where((entry) => entry.value.locallyModified)
-          .map((entry) => UploadJob(
-                syncNode: syncNode,
-                key: entry.key,
-                multipass: false,
-              ))
-          .toList(),
-    );
-
-    return jobResults.successCount();
+    return syncNode.syncJobExecutor
+        .addAll(
+          entries.entries
+              .where((entry) => entry.value.locallyModified)
+              .map((entry) => UploadJob(
+                    syncNode: syncNode,
+                    key: entry.key,
+                    multipass: false,
+                  )),
+        )
+        .successCount();
   }
 
   @override
@@ -156,30 +153,20 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
   }
 
   Future<void> _startUpsync() {
-    _uploadToken ??= syncNode.jobScheduler.addJobStream(
-      syncNode.localStore
-          .watch()
-          .where((event) => event.value.locallyModified)
-          .map(
-            (event) => UploadJob(
-              syncNode: syncNode,
-              key: event.key,
-              multipass: false,
-            ),
-          ),
-      '${syncNode.storeName}:upload',
+    _uploadSub ??= syncNode.syncJobExecutor.addStream(
+      syncNode.localStore.watch().asUploadJobs(syncNode),
     );
     return Future.value();
   }
 
   Future<void> _stopUpsync() {
-    final cancelFuture = _uploadToken?.cancel();
-    _uploadToken = null;
+    final cancelFuture = _uploadSub?.cancel();
+    _uploadSub = null;
     return cancelFuture ?? Future.value();
   }
 
   Future<void> _startDownsync() async {
-    if (_downloadToken == null) {
+    if (_downloadSub == null) {
       final Stream<StoreEvent<CipherMessage>> stream;
       if (autoRenew) {
         stream = AutoRenewStream.fromStream(
@@ -190,51 +177,8 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
         stream = await _createDownstream();
       }
 
-      _downloadToken ??= syncNode.jobScheduler.addJobStream(
-        stream.expand(
-          (event) => event.when(
-            reset: (data) => syncNode.localStore.rawKeys
-                .where((key) => !data.keys.contains(key))
-                .map(
-                  (key) => DownloadJob(
-                    syncNode: syncNode,
-                    key: key,
-                    remoteCipher: null,
-                    conflictsTriggerUpload: false,
-                  ),
-                )
-                .followedBy(
-                  data.entries.map(
-                    (entry) => DownloadJob(
-                      syncNode: syncNode,
-                      key: entry.key,
-                      remoteCipher: entry.value,
-                      conflictsTriggerUpload: false,
-                    ),
-                  ),
-                ),
-            put: (key, value) => [
-              DownloadJob(
-                syncNode: syncNode,
-                key: key,
-                remoteCipher: value,
-                conflictsTriggerUpload: false,
-              )
-            ],
-            delete: (key) => [
-              DownloadJob(
-                syncNode: syncNode,
-                key: key,
-                remoteCipher: null,
-                conflictsTriggerUpload: false,
-              )
-            ],
-            patch: (_, __) => const [],
-            invalidPath: (_) => const [],
-          ),
-        ),
-        '${syncNode.storeName}:download',
-      );
+      _downloadSub ??= syncNode.syncJobExecutor
+          .addCollectionStream(stream.asDownloadJobs(syncNode));
     }
   }
 
@@ -244,14 +188,14 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
           : syncNode.remoteStore.streamAll();
 
   Future<void> _stopDownsync() {
-    final cancelFuture = _downloadToken?.cancel();
-    _downloadToken = null;
+    final cancelFuture = _downloadSub?.cancel();
+    _downloadSub = null;
     return cancelFuture ?? Future.value();
   }
 }
 
-extension _SyncJobResultListX on Iterable<SyncJobResult> {
-  int successCount() => fold<int>(
+extension _SyncJobResultListX on Stream<SyncJobResult> {
+  Future<int> successCount() => fold<int>(
         0,
         (previousValue, result) =>
             result == SyncJobResult.success ? previousValue + 1 : previousValue,

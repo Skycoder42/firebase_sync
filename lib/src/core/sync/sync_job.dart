@@ -13,10 +13,10 @@ enum SyncJobResult {
 }
 
 @freezed
-class SyncJobExecutionResult with _$SyncJobExecutionResult {
-  const factory SyncJobExecutionResult.success() = _Success;
-  const factory SyncJobExecutionResult.noop() = _Noop;
-  const factory SyncJobExecutionResult.next(SyncJob nextJob) = _Next;
+class ExecutionResult with _$ExecutionResult {
+  const factory ExecutionResult.modified() = _Modified;
+  const factory ExecutionResult.noop() = _Noop;
+  const factory ExecutionResult.continued(SyncJob nextJob) = _Continued;
 }
 
 abstract class SyncJob {
@@ -25,22 +25,26 @@ abstract class SyncJob {
   @nonVirtual
   Future<SyncJobResult> get result => _completer.future;
 
-  String get storeName;
-  String get key;
-
   @nonVirtual
-  Future<void> call() async {
+  Future<SyncJob?> call() async {
     if (_completer.isCompleted) {
-      return;
+      return null;
     }
 
     try {
       final result = await execute();
-      _completer.complete(result.when(
-        success: () => SyncJobResult.success,
-        noop: () => SyncJobResult.noop,
-        next: (job) => job.result,
-      ));
+      _completer.complete(
+        result.when(
+          modified: () => SyncJobResult.success,
+          noop: () => SyncJobResult.noop,
+          continued: (job) => job.result,
+        ),
+      );
+
+      return result.maybeWhen(
+        continued: (job) => job,
+        orElse: () => null,
+      );
     } catch (e) {
       _completer.complete(SyncJobResult.failure);
       rethrow;
@@ -54,15 +58,26 @@ abstract class SyncJob {
     }
   }
 
-  @nonVirtual
-  bool checkConflict(SyncJob other) =>
-      storeName == other.storeName && key == other.key;
-
   @protected
-  Future<SyncJobExecutionResult> execute();
+  Future<ExecutionResult> execute();
+}
 
-  // coverage:ignore-start
+abstract class SyncJobCollection {
+  factory SyncJobCollection.single(SyncJob syncJob) = _SingleSyncJobCollection;
+
+  Stream<SyncJobResult> get results;
+
+  Stream<SyncJob> expand();
+}
+
+class _SingleSyncJobCollection implements SyncJobCollection {
+  final SyncJob syncJob;
+
+  _SingleSyncJobCollection(this.syncJob);
+
   @override
-  String toString() => '$runtimeType($storeName:$key)';
-  // coverage:ignore-end
+  Stream<SyncJob> expand() => Stream.value(syncJob);
+
+  @override
+  Stream<SyncJobResult> get results => Stream.fromFuture(syncJob.result);
 }
