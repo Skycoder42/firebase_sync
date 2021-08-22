@@ -5,14 +5,22 @@ import 'package:meta/meta.dart';
 
 import '../crypto/cipher_message.dart';
 import 'jobs/download_job.dart';
-import 'jobs/reset_job_collection.dart';
+import 'jobs/reset_job.dart';
 import 'sync_job.dart';
 import 'sync_node.dart';
 
+extension DownloadJobTransformerX on Stream<StoreEvent<CipherMessage>> {
+  Stream<SyncJob> asDownloadJobs<T extends Object>(
+    SyncNode<T> syncNode,
+  ) =>
+      transform(DownloadJobTransformer<T>(syncNode));
+}
+
+@visibleForTesting
 class DownloadJobTransformerSink<T extends Object>
     implements EventSink<StoreEvent<CipherMessage>> {
   final SyncNode<T> syncNode;
-  final EventSink<SyncJobCollection> sink;
+  final EventSink<SyncJob> sink;
 
   DownloadJobTransformerSink({
     required this.syncNode,
@@ -39,7 +47,7 @@ class DownloadJobTransformerSink<T extends Object>
 
   void _reset(Map<String, CipherMessage> data) {
     sink.add(
-      ResetJobCollection(
+      ResetJob(
         syncNode: syncNode,
         data: data,
       ),
@@ -48,25 +56,21 @@ class DownloadJobTransformerSink<T extends Object>
 
   void _put(String key, CipherMessage value) {
     sink.add(
-      SyncJobCollection.single(
-        DownloadUpdateJob(
-          syncNode: syncNode,
-          key: key,
-          remoteCipher: value,
-          conflictsTriggerUpload: false,
-        ),
+      DownloadUpdateJob(
+        syncNode: syncNode,
+        key: key,
+        remoteCipher: value,
+        conflictsTriggerUpload: false,
       ),
     );
   }
 
   void _delete(String key) {
     sink.add(
-      SyncJobCollection.single(
-        DownloadDeleteJob(
-          syncNode: syncNode,
-          key: key,
-          conflictsTriggerUpload: false,
-        ),
+      DownloadDeleteJob(
+        syncNode: syncNode,
+        key: key,
+        conflictsTriggerUpload: false,
       ),
     );
   }
@@ -74,13 +78,13 @@ class DownloadJobTransformerSink<T extends Object>
 
 @visibleForTesting
 class DownloadJobTransformer<T extends Object>
-    implements StreamTransformer<StoreEvent<CipherMessage>, SyncJobCollection> {
+    implements StreamTransformer<StoreEvent<CipherMessage>, SyncJob> {
   final SyncNode<T> syncNode;
 
   const DownloadJobTransformer(this.syncNode);
 
   @override
-  Stream<SyncJobCollection> bind(Stream stream) => Stream.eventTransformed(
+  Stream<SyncJob> bind(Stream stream) => Stream.eventTransformed(
         stream,
         (sink) => DownloadJobTransformerSink(
           syncNode: syncNode,
@@ -90,11 +94,4 @@ class DownloadJobTransformer<T extends Object>
 
   @override
   StreamTransformer<RS, RT> cast<RS, RT>() => StreamTransformer.castFrom(this);
-}
-
-extension DownloadJobTransformerX on Stream<StoreEvent<CipherMessage>> {
-  Stream<SyncJobCollection> asDownloadJobs<T extends Object>(
-    SyncNode<T> syncNode,
-  ) =>
-      transform(DownloadJobTransformer<T>(syncNode));
 }

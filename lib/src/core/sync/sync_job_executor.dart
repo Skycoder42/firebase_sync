@@ -5,15 +5,13 @@ import 'sync_error_transformer.dart';
 import 'sync_job.dart';
 
 class SyncJobExecutor {
-  final _streamController = StreamController<SyncJobCollection>();
+  final _streamController = StreamController<SyncJob>();
   // ignore: close_sinks
   final _errorStreamController = StreamController<SyncError>.broadcast();
 
   SyncJobExecutor() {
     _streamController.stream
-        .asyncExpand(
-          (collection) => collection.expand().asyncMap((job) => job()),
-        )
+        .asyncExpand(_expandAndExecute)
         .map(_checkReschedule)
         .mapSyncErrors()
         .pipe(_errorStreamController);
@@ -24,15 +22,18 @@ class SyncJobExecutor {
     await _streamController.close();
   }
 
-  Stream<SyncJobResult> addCollection(SyncJobCollection syncJobCollection) {
-    _streamController.add(syncJobCollection);
-    return syncJobCollection.results;
+  Future<SyncJobResult> add(SyncJob syncJob) {
+    _streamController.add(syncJob);
+    return syncJob.result;
   }
 
-  StreamSubscription<void> addCollectionStream(
-    Stream<SyncJobCollection> syncJobCollectionStream,
+  Stream<SyncJobResult> addAll(Iterable<SyncJob> syncJobs) =>
+      Stream.fromFutures(syncJobs.map(add));
+
+  StreamSubscription<void> addStream(
+    Stream<SyncJob> syncJobStream,
   ) {
-    final subscription = syncJobCollectionStream.listen(
+    final subscription = syncJobStream.listen(
       _streamController.add,
       onError: _streamController.addError,
       cancelOnError: false,
@@ -44,24 +45,13 @@ class SyncJobExecutor {
     return subscription;
   }
 
-  Future<SyncJobResult> add(SyncJob syncJob) {
-    addCollection(SyncJobCollection.single(syncJob));
-    return syncJob.result;
-  }
-
-  Stream<SyncJobResult> addAll(Iterable<SyncJob> syncJobs) =>
-      Stream.fromFutures(syncJobs.map(add));
-
-  StreamSubscription<void> addStream(Stream<SyncJob> syncJobStream) =>
-      addCollectionStream(
-        syncJobStream.map(
-          (job) => SyncJobCollection.single(job),
-        ),
-      );
+  Stream<SyncJob?> _expandAndExecute(SyncJob syncJob) => syncJob
+      .expand()
+      .asyncMap((executableSyncJob) => executableSyncJob.execute());
 
   void _checkReschedule(SyncJob? syncJob) {
     if (syncJob != null) {
-      add(syncJob);
+      _streamController.add(syncJob);
     }
   }
 }

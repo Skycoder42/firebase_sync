@@ -1,5 +1,6 @@
 import 'package:firebase_database_rest/firebase_database_rest.dart';
 
+import 'sync_job.dart';
 import 'sync_mode.dart';
 
 abstract class SyncController<T extends Object> {
@@ -15,14 +16,14 @@ abstract class SyncController<T extends Object> {
   // ignore: avoid_positional_boolean_parameters
   Future<void> setAutoRenew(bool autoRenew);
 
-  Future<int> download({
+  Future<SyncJobResult> download({
     Filter? filter,
     bool conflictsTriggerUpload = false,
   });
 
-  Future<int> upload({bool multipass = true});
+  Future<SyncJobResult> upload({bool multipass = true});
 
-  Future<int> reload({
+  Future<SyncJobResult> reload({
     Filter? filter,
     bool multipass = true,
   });

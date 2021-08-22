@@ -6,8 +6,7 @@ import 'package:meta/meta.dart';
 import '../crypto/cipher_message.dart';
 import '../store/sync_object.dart';
 import 'download_job_transformer.dart';
-import 'jobs/download_job.dart';
-import 'jobs/reset_job_collection.dart';
+import 'jobs/reset_job.dart';
 import 'jobs/upload_job.dart';
 import 'sync_controller.dart';
 import 'sync_job.dart';
@@ -101,7 +100,7 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
   }
 
   @override
-  Future<int> download({
+  Future<SyncJobResult> download({
     Filter? filter,
     bool conflictsTriggerUpload = false,
   }) async {
@@ -109,18 +108,16 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
         ? await syncNode.remoteStore.query(filter)
         : await syncNode.remoteStore.all();
 
-    return syncNode.syncJobExecutor
-        .addCollection(
-          ResetJobCollection(
-            syncNode: syncNode,
-            data: entries,
-          ),
-        )
-        .successCount();
+    return syncNode.syncJobExecutor.add(
+      ResetJob(
+        syncNode: syncNode,
+        data: entries,
+      ),
+    );
   }
 
   @override
-  Future<int> upload({bool multipass = true}) async {
+  Future<SyncJobResult> upload({bool multipass = true}) async {
     final entries = await syncNode.localStore.listEntries();
     return syncNode.syncJobExecutor
         .addAll(
@@ -132,17 +129,17 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
                     multipass: false,
                   )),
         )
-        .successCount();
+        .reduceToMostImportant();
   }
 
   @override
-  Future<int> reload({
+  Future<SyncJobResult> reload({
     Filter? filter,
     bool multipass = true,
   }) async {
     final downloadCnt = await download(filter: filter);
     final uploadCnt = await upload(multipass: multipass);
-    return downloadCnt + uploadCnt;
+    return [downloadCnt, uploadCnt].reduceToMostImportant();
   }
 
   @protected
@@ -177,8 +174,9 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
         stream = await _createDownstream();
       }
 
-      _downloadSub ??= syncNode.syncJobExecutor
-          .addCollectionStream(stream.asDownloadJobs(syncNode));
+      _downloadSub ??= syncNode.syncJobExecutor.addStream(
+        stream.asDownloadJobs(syncNode),
+      );
     }
   }
 
@@ -194,10 +192,16 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
   }
 }
 
-extension _SyncJobResultListX on Stream<SyncJobResult> {
-  Future<int> successCount() => fold<int>(
-        0,
-        (previousValue, result) =>
-            result == SyncJobResult.success ? previousValue + 1 : previousValue,
+extension _SyncJobResultListX on Iterable<SyncJobResult> {
+  SyncJobResult reduceToMostImportant() => reduce(
+        (previous, element) =>
+            element.index > previous.index ? element : previous,
+      );
+}
+
+extension _SyncJobResultStreamX on Stream<SyncJobResult> {
+  Future<SyncJobResult> reduceToMostImportant() => reduce(
+        (previous, element) =>
+            element.index > previous.index ? element : previous,
       );
 }

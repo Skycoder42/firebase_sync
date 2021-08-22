@@ -1,83 +1,38 @@
 import 'dart:async';
 
-import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:meta/meta.dart';
 
-part 'sync_job.freezed.dart';
+import 'executable_sync_job.dart';
+import 'expandable_sync_job.dart';
 
 enum SyncJobResult {
-  success,
   noop,
+  success,
   failure,
   aborted,
 }
 
-@freezed
-class ExecutionResult with _$ExecutionResult {
-  const factory ExecutionResult.modified() = _Modified;
-  const factory ExecutionResult.noop() = _Noop;
-  const factory ExecutionResult.continued(SyncJob nextJob) = _Continued;
-}
-
 abstract class SyncJob {
-  final _completer = Completer<SyncJobResult>();
+  @internal
+  final completer = Completer<SyncJobResult>();
 
   @nonVirtual
-  Future<SyncJobResult> get result => _completer.future;
-
-  @nonVirtual
-  Future<SyncJob?> call() async {
-    if (_completer.isCompleted) {
-      return null;
-    }
-
-    try {
-      final result = await execute();
-      _completer.complete(
-        result.when(
-          modified: () => SyncJobResult.success,
-          noop: () => SyncJobResult.noop,
-          continued: (job) => job.result,
-        ),
-      );
-
-      return result.maybeWhen(
-        continued: (job) => job,
-        orElse: () => null,
-      );
-    } catch (e) {
-      _completer.complete(SyncJobResult.failure);
-      rethrow;
-    }
-  }
+  Future<SyncJobResult> get result => completer.future;
 
   @nonVirtual
   void abort() {
-    if (!_completer.isCompleted) {
-      _completer.complete(SyncJobResult.aborted);
+    if (!completer.isCompleted) {
+      completer.complete(SyncJobResult.aborted);
     }
   }
-
-  @protected
-  Future<ExecutionResult> execute();
 }
 
-abstract class SyncJobCollection {
-  factory SyncJobCollection.single(SyncJob syncJob) = _SingleSyncJobCollection;
-
-  Stream<SyncJobResult> get results;
-
-  Stream<SyncJob> expand();
-}
-
-class _SingleSyncJobCollection implements SyncJobCollection {
-  final SyncJob syncJob;
-
-  _SingleSyncJobCollection(this.syncJob);
-
-  @override
-  Stream<SyncJob> expand() => Stream.value(syncJob);
-
-  @override
-  Stream<SyncJobResult> get results => Stream.fromFuture(syncJob.result);
+extension SyncJobExpandX on SyncJob {
+  Stream<ExecutableSyncJob> expand() {
+    if (this is ExpandableSyncJob) {
+      return (this as ExpandableSyncJob).expand();
+    } else {
+      return Stream.value(this as ExecutableSyncJob);
+    }
+  }
 }

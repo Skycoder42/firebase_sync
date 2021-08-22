@@ -5,13 +5,13 @@ import 'package:meta/meta.dart';
 import '../../crypto/cipher_message.dart';
 import '../../store/sync_object.dart';
 import '../../store/update_action.dart';
-import '../sync_job.dart';
+import '../executable_sync_job.dart';
 import '../sync_node.dart';
 import 'conflict_resolver_mixin.dart';
 import 'upload_job.dart';
 
 @visibleForTesting
-abstract class DownloadJobBase<T extends Object> extends SyncJob
+abstract class DownloadJobBase<T extends Object> extends ExecutableSyncJob
     with ConflictResolverMixin<T> {
   final SyncNode<T> syncNode;
   final bool conflictsTriggerUpload;
@@ -58,7 +58,7 @@ class DownloadUpdateJob<T extends Object> extends DownloadJobBase<T> {
         );
 
   @override
-  Future<ExecutionResult> execute() async {
+  Future<ExecutionResult> executeImpl() async {
     // decrypt remote data
     final dynamic plainJson = await syncNode.dataEncryptor.decrypt(
       remoteUri: syncNode.remoteStore.remoteUri(key),
@@ -122,7 +122,7 @@ class DownloadDeleteJob<T extends Object> extends DownloadJobBase<T> {
         );
 
   @override
-  Future<ExecutionResult> execute() async {
+  Future<ExecutionResult> executeImpl() async {
     // update locally
     late final Uint8List oldRemoteTag;
     final updatedEntry = await syncNode.localStore.update(

@@ -3,11 +3,11 @@ import 'package:firebase_database_rest/firebase_database_rest.dart';
 import '../../crypto/cipher_message.dart';
 import '../../store/sync_object.dart';
 import '../../store/update_action.dart';
-import '../sync_job.dart';
+import '../executable_sync_job.dart';
 import '../sync_node.dart';
 import 'conflict_resolver_mixin.dart';
 
-class UploadJob<T extends Object> extends SyncJob
+class UploadJob<T extends Object> extends ExecutableSyncJob
     with ConflictResolverMixin<T> {
   final SyncNode<T> syncNode;
   final bool multipass;
@@ -21,7 +21,7 @@ class UploadJob<T extends Object> extends SyncJob
   });
 
   @override
-  Future<ExecutionResult> execute() async {
+  Future<ExecutionResult> executeImpl() async {
     // check if entry needs to be uploaded
     var localEntry = await syncNode.localStore.get(key);
     if (!localEntry.locallyModified) {
