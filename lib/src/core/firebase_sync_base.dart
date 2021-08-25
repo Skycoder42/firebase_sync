@@ -21,13 +21,11 @@ typedef CreateStoreFn<TData extends Object, TStore extends Store<TData>>
 
 abstract class FirebaseSyncBase {
   final _stores = <String, Store<dynamic>>{};
-  final _errorStreamController =
-      StreamController<MapEntry<String, SyncError>>.broadcast();
+  final _errorStreamController = StreamController<NamedSyncError>.broadcast();
 
   FirebaseStore<dynamic> get rootStore;
 
-  Stream<MapEntry<String, SyncError>> get syncErrors =>
-      _errorStreamController.stream;
+  Stream<NamedSyncError> get syncErrors => _errorStreamController.stream;
 
   bool isStoreOpen(String name) => _stores.containsKey(name);
 
@@ -102,9 +100,10 @@ abstract class FirebaseSyncBase {
     required DataEncryptor dataEncryptor,
     ConflictResolver<T>? conflictResolver,
   }) {
-    final syncNode = SyncNode<T>(
+    final syncJobExecutor = SyncJobExecutor();
+    return SyncNode<T>(
       storeName: storeName,
-      syncJobExecutor: SyncJobExecutor(),
+      syncJobExecutor: syncJobExecutor,
       dataEncryptor: dataEncryptor,
       jsonConverter: jsonConverter,
       conflictResolver: conflictResolver ?? const ConflictResolver(),
@@ -113,15 +112,11 @@ abstract class FirebaseSyncBase {
         parent: rootStore,
         name: storeName,
       ),
+      errorSubscription: syncJobExecutor.syncErrors.listen(
+        (error) => _errorStreamController.add(error.named(storeName)),
+        onError: _errorStreamController.addError,
+        cancelOnError: false,
+      ),
     );
-
-    // subscription will never be canceled
-    syncNode.syncJobExecutor.syncErrors.listen(
-      (error) => _errorStreamController.add(MapEntry(storeName, error)),
-      onError: _errorStreamController.addError,
-      cancelOnError: false,
-    );
-
-    return syncNode;
   }
 }

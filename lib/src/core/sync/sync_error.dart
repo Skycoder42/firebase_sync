@@ -11,6 +11,25 @@ class SyncError with _$SyncError {
     StackTrace? stackTrace,
   ]) = _SyncError;
 
+  @visibleForTesting
+  const factory SyncError.named({
+    required String name,
+    required Object error,
+    StackTrace? stackTrace,
+  }) = NamedSyncError;
+
+  @internal
+  NamedSyncError named(String name) => map(
+        (error) => NamedSyncError(
+          name: name,
+          error: error.error,
+          stackTrace: error.stackTrace,
+        ),
+        named: (_) => throw UnsupportedError(
+          'Cannot call named() on an already named error',
+        ),
+      );
+
   // coverage:ignore-start
   @override
   String toString() => '$error${stackTrace != null ? '\n$stackTrace' : ''}';

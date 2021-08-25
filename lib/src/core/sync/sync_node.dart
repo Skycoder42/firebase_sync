@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_database_rest/firebase_database_rest.dart';
 
 import '../crypto/crypto_firebase_store.dart';
@@ -14,6 +16,7 @@ class SyncNode<T extends Object> {
   final ConflictResolver<T> conflictResolver;
   final SyncObjectStore<T> localStore;
   final CryptoFirebaseStore remoteStore;
+  final StreamSubscription<void> errorSubscription;
 
   const SyncNode({
     required this.storeName,
@@ -23,10 +26,14 @@ class SyncNode<T extends Object> {
     required this.conflictResolver,
     required this.localStore,
     required this.remoteStore,
+    required this.errorSubscription,
   });
 
   Future<void> close() async {
-    await syncJobExecutor.close();
+    await Future.wait([
+      syncJobExecutor.close(),
+      errorSubscription.cancel(),
+    ]);
     dataEncryptor.dispose();
   }
 }

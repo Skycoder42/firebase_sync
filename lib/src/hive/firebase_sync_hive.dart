@@ -57,6 +57,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
     required covariant TypeAdapter<T> storageConverter,
     SyncMode syncMode = SyncMode.sync,
     ConflictResolver<T>? conflictResolver,
+    int? storeId,
     KeyComparator keyComparator = defaultKeyComparator,
     CompactionStrategy compactionStrategy = defaultCompactionStrategy,
     bool crashRecovery = true,
@@ -68,7 +69,9 @@ class FirebaseSyncHive extends FirebaseSyncBase {
 
         final box = await hive.openBox<SyncObject<T>>(
           name,
-          encryptionCipher: await _createCipher(storageConverter.typeId),
+          encryptionCipher: await _createCipher(
+            storeId ?? storageConverter.typeId,
+          ),
           keyComparator: keyComparator,
           compactionStrategy: compactionStrategy,
           crashRecovery: crashRecovery,
@@ -85,7 +88,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
             dataEncryptor: SodiumDataEncryptor(
               sodium: sodium,
               keyManager: _keyManager,
-              storeId: storageConverter.typeId,
+              storeId: storeId ?? storageConverter.typeId,
             ),
             conflictResolver: conflictResolver,
           ),
@@ -100,6 +103,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
     required JsonConverter<T> jsonConverter,
     required covariant TypeAdapter<T> storageConverter,
     SyncMode syncMode = SyncMode.sync,
+    int? storeId,
     ConflictResolver<T>? conflictResolver,
     KeyComparator keyComparator = defaultKeyComparator,
     CompactionStrategy compactionStrategy = defaultCompactionStrategy,
@@ -111,7 +115,9 @@ class FirebaseSyncHive extends FirebaseSyncBase {
 
         final box = await hive.openLazyBox<SyncObject<T>>(
           name,
-          encryptionCipher: await _createCipher(storageConverter.typeId),
+          encryptionCipher: await _createCipher(
+            storeId ?? storageConverter.typeId,
+          ),
           keyComparator: keyComparator,
           compactionStrategy: compactionStrategy,
           crashRecovery: crashRecovery,
@@ -128,7 +134,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
             dataEncryptor: SodiumDataEncryptor(
               sodium: sodium,
               keyManager: _keyManager,
-              storeId: storageConverter.typeId,
+              storeId: storeId ?? storageConverter.typeId,
             ),
             conflictResolver: conflictResolver,
           ),
@@ -142,6 +148,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
   Future<HiveOfflineStore<T>> openOfflineStore<T extends Object>({
     required String name,
     required covariant TypeAdapter<T> storageConverter,
+    int? storeId,
     KeyComparator keyComparator = defaultKeyComparator,
     CompactionStrategy compactionStrategy = defaultCompactionStrategy,
     bool crashRecovery = true,
@@ -152,7 +159,9 @@ class FirebaseSyncHive extends FirebaseSyncBase {
 
         final box = await hive.openBox<T>(
           name,
-          encryptionCipher: await _createCipher(storageConverter.typeId),
+          encryptionCipher: await _createCipher(
+            storeId ?? storageConverter.typeId,
+          ),
           keyComparator: keyComparator,
           compactionStrategy: compactionStrategy,
           crashRecovery: crashRecovery,
@@ -169,6 +178,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
   Future<LazyHiveOfflineStore<T>> openLazyOfflineStore<T extends Object>({
     required String name,
     required covariant TypeAdapter<T> storageConverter,
+    int? storeId,
     KeyComparator keyComparator = defaultKeyComparator,
     CompactionStrategy compactionStrategy = defaultCompactionStrategy,
     bool crashRecovery = true,
@@ -179,7 +189,9 @@ class FirebaseSyncHive extends FirebaseSyncBase {
 
         final box = await hive.openLazyBox<T>(
           name,
-          encryptionCipher: await _createCipher(storageConverter.typeId),
+          encryptionCipher: await _createCipher(
+            storeId ?? storageConverter.typeId,
+          ),
           keyComparator: keyComparator,
           compactionStrategy: compactionStrategy,
           crashRecovery: crashRecovery,
