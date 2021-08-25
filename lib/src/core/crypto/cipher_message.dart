@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import '../store/sync_object.dart';
 import '../util/uint8list_converter.dart';
 
 part 'cipher_message.freezed.dart';
@@ -22,4 +23,9 @@ class CipherMessage with _$CipherMessage {
 
   factory CipherMessage.fromJson(Map<String, dynamic> json) =>
       _$CipherMessageFromJson(json);
+}
+
+extension CipherMessageX on CipherMessage? {
+  Uint8List get remoteTagOrDefault =>
+      this?.remoteTag ?? SyncObject.noRemoteDataTag;
 }

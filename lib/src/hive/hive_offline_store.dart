@@ -11,57 +11,62 @@ import 'hive_store.dart';
 
 class HiveOfflineStore<T extends Object>
     implements HiveStore<T>, OfflineStore<T> {
-  final Box<T> _rawBox;
-  final Uuid _uuid;
+  final Box<T> rawBox;
+  final Uuid uuid;
+  final void Function() onClosed;
 
-  HiveOfflineStore(this._rawBox, this._uuid);
-
-  @override
-  int count() => _rawBox.length;
-
-  @override
-  Iterable<String> listKeys() => _rawBox.keys.cast();
-
-  @override
-  Map<String, T> listEntries() => _rawBox.toMap().cast();
+  HiveOfflineStore({
+    required this.rawBox,
+    required this.uuid,
+    required this.onClosed,
+  });
 
   @override
-  bool contains(String key) => _rawBox.containsKey(key);
+  int count() => rawBox.length;
 
   @override
-  T? get(String key) => _rawBox.get(key);
+  Iterable<String> listKeys() => rawBox.keys.cast();
+
+  @override
+  Map<String, T> listEntries() => rawBox.toMap().cast();
+
+  @override
+  bool contains(String key) => rawBox.containsKey(key);
+
+  @override
+  T? get(String key) => rawBox.get(key);
 
   @override
   String create(T value) {
-    final key = _rawBox.generateKey(_uuid);
-    _rawBox.put(key, value);
+    final key = rawBox.generateKey(uuid);
+    rawBox.put(key, value);
     return key;
   }
 
   @override
-  void put(String key, T value) => _rawBox.put(key, value);
+  void put(String key, T value) => rawBox.put(key, value);
 
   @override
   T? update(String key, UpdateFn<T> onUpdate) {
-    final value = _rawBox.get(key);
+    final value = rawBox.get(key);
     return onUpdate(value).when(
       none: () => value,
       update: (value) {
-        _rawBox.put(key, value);
+        rawBox.put(key, value);
         return value;
       },
       delete: () {
-        _rawBox.delete(key);
+        rawBox.delete(key);
         return null;
       },
     );
   }
 
   @override
-  void delete(String key) => _rawBox.delete(key);
+  void delete(String key) => rawBox.delete(key);
 
   @override
-  Stream<StoreEvent<T>> watch() => _rawBox.watch().map(
+  Stream<StoreEvent<T>> watch() => rawBox.watch().map(
         (event) => StoreEvent(
           key: event.key as String,
           value: event.value as T?,
@@ -69,42 +74,45 @@ class HiveOfflineStore<T extends Object>
       );
 
   @override
-  void clear() => _rawBox.clear();
+  void clear() => rawBox.clear();
 
   @override
-  bool get isEmpty => _rawBox.isEmpty;
+  bool get isEmpty => rawBox.isEmpty;
 
   @override
-  bool get isNotEmpty => _rawBox.isNotEmpty;
+  bool get isNotEmpty => rawBox.isNotEmpty;
 
   @override
-  bool get isOpen => _rawBox.isOpen;
+  bool get isOpen => rawBox.isOpen;
 
   @override
-  bool get lazy => _rawBox.lazy;
+  bool get lazy => rawBox.lazy;
 
   @override
-  String get name => _rawBox.name;
+  String get name => rawBox.name;
 
   @override
-  String? get path => _rawBox.path;
+  String? get path => rawBox.path;
 
   @override
-  Future<void> compact() => _rawBox.compact();
+  Future<void> compact() => rawBox.compact();
 
   @override
-  Iterable<T> get values => _rawBox.values;
+  Iterable<T> get values => rawBox.values;
 
   @override
   Iterable<T> valuesBetween({
     String? startKey,
     String? endKey,
   }) =>
-      _rawBox.valuesBetween(startKey: startKey, endKey: endKey);
+      rawBox.valuesBetween(startKey: startKey, endKey: endKey);
 
   @override
-  Future<void> close() => _rawBox.close();
+  Future<void> close() async {
+    onClosed();
+    await rawBox.close();
+  }
 
   @override
-  Future<void> destroy() => _rawBox.deleteFromDisk();
+  Future<void> destroy() => rawBox.deleteFromDisk();
 }

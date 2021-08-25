@@ -142,11 +142,13 @@ class HiveOnlineStore<T extends Object> implements HiveStore<T> {
           .where((value) => value.value != null)
           .map((value) => value.value!);
 
-  @protected
-  Future<void> destroyBox() => _rawBox.deleteFromDisk();
+  @override
+  @mustCallSuper
+  Future<void> destroy() => _rawBox.deleteFromDisk();
 
-  @protected
-  Future<void> closeBox() => _rawBox.close();
+  @override
+  @mustCallSuper
+  Future<void> close() => _rawBox.close();
 
   Iterable<MapEntry<String, SyncObject<T>>> _allEntries() => _rawBox
       .toMap()

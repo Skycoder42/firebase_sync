@@ -25,7 +25,8 @@ class SyncNode<T extends Object> {
     required this.remoteStore,
   });
 
-  void dispose() {
+  Future<void> close() async {
+    await syncJobExecutor.close();
     dataEncryptor.dispose();
   }
 }

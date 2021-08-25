@@ -32,8 +32,7 @@ class UploadJob<T extends Object> extends ExecutableSyncJob
     final transaction = await syncNode.remoteStore.transaction(key);
 
     // check for and resolve conflicts
-    final remoteTag =
-        transaction.value?.remoteTag ?? SyncObject.noRemoteDataTag;
+    final remoteTag = transaction.value.remoteTagOrDefault;
     if (localEntry!.remoteTag != remoteTag) {
       localEntry = await _resolveConflict(transaction);
       if (!localEntry.locallyModified) {
@@ -148,7 +147,7 @@ class UploadJob<T extends Object> extends ExecutableSyncJob
           key: key,
           localData: oldValue,
           remoteData: remoteData,
-          remoteTag: transaction.value?.remoteTag ?? SyncObject.noRemoteDataTag,
+          remoteTag: transaction.value.remoteTagOrDefault,
           syncNode: syncNode,
         );
       },

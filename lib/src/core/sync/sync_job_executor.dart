@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'sync_error.dart';
-import 'sync_error_transformer.dart';
 import 'sync_job.dart';
+import 'transformers/sync_error_transformer.dart';
 
 class SyncJobExecutor {
   final _streamController = StreamController<SyncJob>();
@@ -15,14 +15,20 @@ class SyncJobExecutor {
         .map(_checkReschedule)
         .mapSyncErrors()
         .pipe(_errorStreamController);
-    // TODO as broadcast maybe? would require subscrption to the error stream
   }
+
+  Stream<SyncError> get syncErrors => _errorStreamController.stream;
 
   Future<void> close() async {
     await _streamController.close();
   }
 
   Future<SyncJobResult> add(SyncJob syncJob) {
+    assert(
+      !_streamController.isClosed,
+      'Cannot add jobs to a closed SyncJobExecutor',
+    );
+
     _streamController.add(syncJob);
     return syncJob.result;
   }
@@ -33,6 +39,11 @@ class SyncJobExecutor {
   StreamSubscription<void> addStream(
     Stream<SyncJob> syncJobStream,
   ) {
+    assert(
+      !_streamController.isClosed,
+      'Cannot add jobs to a closed SyncJobExecutor',
+    );
+
     final subscription = syncJobStream.listen(
       _streamController.add,
       onError: _streamController.addError,
@@ -45,11 +56,23 @@ class SyncJobExecutor {
     return subscription;
   }
 
-  Stream<SyncJob?> _expandAndExecute(SyncJob syncJob) => syncJob
-      .expand()
-      .asyncMap((executableSyncJob) => executableSyncJob.execute());
+  Stream<SyncJob?> _expandAndExecute(SyncJob syncJob) {
+    if (_streamController.isClosed) {
+      syncJob.abort();
+      return const Stream.empty();
+    }
+
+    return syncJob
+        .expand()
+        .asyncMap((executableSyncJob) => executableSyncJob.execute());
+  }
 
   void _checkReschedule(SyncJob? syncJob) {
+    if (_streamController.isClosed) {
+      syncJob?.abort();
+      return;
+    }
+
     if (syncJob != null) {
       _streamController.add(syncJob);
     }

@@ -3,11 +3,12 @@ import 'dart:async';
 import 'package:firebase_database_rest/firebase_database_rest.dart';
 import 'package:meta/meta.dart';
 
-import '../crypto/cipher_message.dart';
-import 'jobs/download_job.dart';
-import 'jobs/reset_job.dart';
-import 'sync_job.dart';
-import 'sync_node.dart';
+import '../../crypto/cipher_message.dart';
+import '../jobs/download_delete_job.dart';
+import '../jobs/download_update_job.dart';
+import '../jobs/reset_job.dart';
+import '../sync_job.dart';
+import '../sync_node.dart';
 
 extension DownloadJobTransformerX on Stream<StoreEvent<CipherMessage>> {
   Stream<SyncJob> asDownloadJobs<T extends Object>(

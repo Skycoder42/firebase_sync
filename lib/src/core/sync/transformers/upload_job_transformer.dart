@@ -2,11 +2,17 @@ import 'dart:async';
 
 import 'package:meta/meta.dart';
 
-import '../store/store_event.dart';
-import '../store/sync_object.dart';
-import 'jobs/upload_job.dart';
-import 'sync_job.dart';
-import 'sync_node.dart';
+import '../../store/store_event.dart';
+import '../../store/sync_object.dart';
+import '../jobs/upload_job.dart';
+import '../sync_job.dart';
+import '../sync_node.dart';
+
+extension UploadJobTransformerX<T extends Object>
+    on Stream<StoreEvent<SyncObject<T>>> {
+  Stream<SyncJob> asUploadJobs(SyncNode<T> syncNode) =>
+      transform(UploadJobTransformer(syncNode));
+}
 
 @visibleForTesting
 class UploadJobTransformerSink<T extends Object>
@@ -59,10 +65,4 @@ class UploadJobTransformer<T extends Object>
 
   @override
   StreamTransformer<RS, RT> cast<RS, RT>() => StreamTransformer.castFrom(this);
-}
-
-extension UploadJobTransformerX<T extends Object>
-    on Stream<StoreEvent<SyncObject<T>>> {
-  Stream<SyncJob> asUploadJobs(SyncNode<T> syncNode) =>
-      transform(UploadJobTransformer(syncNode));
 }

@@ -1,30 +1,35 @@
+import 'dart:async';
+
 import 'package:firebase_database_rest/firebase_database_rest.dart';
 import 'package:meta/meta.dart';
 
 import 'crypto/crypto_firebase_store.dart';
 import 'crypto/data_encryptor.dart';
 import 'offline_store.dart';
+import 'store/store.dart';
 import 'store/sync_object_store.dart';
 import 'sync/conflict_resolver.dart';
-import 'sync/sync_engine.dart';
+import 'sync/sync_error.dart';
+import 'sync/sync_job_executor.dart';
 import 'sync/sync_mode.dart';
 import 'sync/sync_node.dart';
 import 'sync_store.dart';
 
+typedef StoreClosedFn = void Function();
+typedef CreateStoreFn<TData extends Object, TStore extends Store<TData>>
+    = FutureOr<TStore> Function(StoreClosedFn onClosed);
+
 abstract class FirebaseSyncBase {
-  final _syncNodes = <String, SyncNode<dynamic>>{};
-
-  final SyncEngine syncEngine;
-
-  FirebaseSyncBase({
-    int parallelJobs = SyncEngine.defaultParallelJobs,
-  }) : syncEngine = SyncEngine(
-          parallelJobs: parallelJobs,
-        );
+  final _stores = <String, Store<dynamic>>{};
+  final _errorStreamController =
+      StreamController<MapEntry<String, SyncError>>.broadcast();
 
   FirebaseStore<dynamic> get rootStore;
 
-  bool isStoreOpen(String name);
+  Stream<MapEntry<String, SyncError>> get syncErrors =>
+      _errorStreamController.stream;
+
+  bool isStoreOpen(String name) => _stores.containsKey(name);
 
   Future<SyncStore<T>> openStore<T extends Object>({
     required String name,
@@ -34,22 +39,59 @@ abstract class FirebaseSyncBase {
     ConflictResolver<T>? conflictResolver,
   });
 
-  SyncStore<T> store<T extends Object>(String name);
+  SyncStore<T> store<T extends Object>(String name) => getStore(name);
 
   Future<OfflineStore<T>> openOfflineStore<T extends Object>({
     required String name,
     required dynamic storageConverter,
   });
 
-  OfflineStore<T> offlineStore<T extends Object>(String name);
+  OfflineStore<T> offlineStore<T extends Object>(String name) => getStore(name);
 
   @mustCallSuper
   Future<void> close() async {
-    await syncEngine.dispose();
-    for (final node in _syncNodes.values) {
-      node.dispose();
+    await Future.wait(_stores.values.map((store) => store.close()));
+    _stores.clear();
+
+    await _errorStreamController.close();
+  }
+
+  @protected
+  Future<TStore> createStore<TData extends Object, TStore extends Store<TData>>(
+    String storeName,
+    CreateStoreFn<TData, TStore> onCreateStore,
+  ) async {
+    if (_stores.containsKey(storeName)) {
+      throw StateError(
+        'A store with the name "$storeName" has already been opened.',
+      );
     }
-    _syncNodes.clear();
+    return _stores[storeName] = await onCreateStore(
+      () => _stores.remove(storeName),
+    );
+  }
+
+  @protected
+  TStore getStore<TData extends Object, TStore extends Store<TData>>(
+    String storeName,
+  ) {
+    final store = _stores[storeName];
+
+    if (store == null) {
+      throw StateError(
+        'A store with the name "$storeName" '
+        'has not been opend or was already closed.',
+      );
+    }
+
+    if (store is! TStore) {
+      throw StateError(
+        'Store with name "$storeName" is of type ${store.runtimeType}, '
+        'but a store of type $TStore was requested.',
+      );
+    }
+
+    return store;
   }
 
   @protected
@@ -59,36 +101,27 @@ abstract class FirebaseSyncBase {
     required JsonConverter<T> jsonConverter,
     required DataEncryptor dataEncryptor,
     ConflictResolver<T>? conflictResolver,
-  }) =>
-      _syncNodes.putIfAbsent(
-        storeName,
-        () => SyncNode(
-          storeName: storeName,
-          jobScheduler: syncEngine,
-          dataEncryptor: dataEncryptor,
-          jsonConverter: jsonConverter,
-          conflictResolver: conflictResolver ?? const ConflictResolver(),
-          localStore: localStore,
-          remoteStore: CryptoFirebaseStore(
-            parent: rootStore,
-            name: storeName,
-          ),
-        ),
-      ) as SyncNode<T>;
+  }) {
+    final syncNode = SyncNode<T>(
+      storeName: storeName,
+      syncJobExecutor: SyncJobExecutor(),
+      dataEncryptor: dataEncryptor,
+      jsonConverter: jsonConverter,
+      conflictResolver: conflictResolver ?? const ConflictResolver(),
+      localStore: localStore,
+      remoteStore: CryptoFirebaseStore(
+        parent: rootStore,
+        name: storeName,
+      ),
+    );
 
-  @protected
-  SyncNode<T> getSyncNode<T extends Object>(String storeName) {
-    final syncNode = _syncNodes[storeName];
-    if (syncNode == null) {
-      throw StateError('createSyncNode must be called before getSyncNode');
-    }
+    // subscription will never be canceled
+    syncNode.syncJobExecutor.syncErrors.listen(
+      (error) => _errorStreamController.add(MapEntry(storeName, error)),
+      onError: _errorStreamController.addError,
+      cancelOnError: false,
+    );
 
-    return syncNode as SyncNode<T>;
-  }
-
-  @protected
-  void closeSyncNode(String storeName) {
-    final node = _syncNodes.remove(storeName);
-    node?.dispose();
+    return syncNode;
   }
 }

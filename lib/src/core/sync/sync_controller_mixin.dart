@@ -4,15 +4,15 @@ import 'package:firebase_database_rest/firebase_database_rest.dart';
 import 'package:meta/meta.dart';
 
 import '../crypto/cipher_message.dart';
-import '../store/sync_object.dart';
-import 'download_job_transformer.dart';
-import 'jobs/reset_job.dart';
-import 'jobs/upload_job.dart';
+import 'jobs/download_all_job.dart';
+import 'jobs/upload_all_job.dart';
 import 'sync_controller.dart';
+import 'sync_error.dart';
 import 'sync_job.dart';
 import 'sync_mode.dart';
 import 'sync_node.dart';
-import 'upload_job_transformer.dart';
+import 'transformers/download_job_transformer.dart';
+import 'transformers/upload_job_transformer.dart';
 
 mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
   @visibleForOverriding
@@ -23,6 +23,9 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
   bool _autoRenew = true;
   StreamSubscription<void>? _uploadSub;
   StreamSubscription<void>? _downloadSub;
+
+  @override
+  Stream<SyncError> get syncErrors => syncNode.syncJobExecutor.syncErrors;
 
   @override
   SyncMode get syncMode => _syncMode;
@@ -36,10 +39,17 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
   @override
   Future<void> setSyncFilter(Filter? filter) async {
     _syncFilter = filter;
-    if (_downloadSub != null) {
-      await _stopDownsync();
-      await _startDownsync();
+    await _restartDownsyncIfRunning();
+  }
+
+  @override
+  Future<void> setAutoRenew(bool autoRenew) async {
+    if (autoRenew == _autoRenew) {
+      return;
     }
+
+    _autoRenew = autoRenew;
+    await _restartDownsyncIfRunning();
   }
 
   @override
@@ -75,6 +85,7 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
           ]);
           break;
       }
+
       _syncMode = syncMode;
     } catch (e) {
       _syncMode = SyncMode.none;
@@ -87,65 +98,43 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
   }
 
   @override
-  Future<void> setAutoRenew(bool autoRenew) async {
-    if (autoRenew == _autoRenew) {
-      return;
-    }
-
-    _autoRenew = autoRenew;
-    if (_downloadSub != null) {
-      await _stopDownsync();
-      await _startDownsync();
-    }
-  }
-
-  @override
   Future<SyncJobResult> download({
     Filter? filter,
     bool conflictsTriggerUpload = false,
-  }) async {
-    final entries = filter != null
-        ? await syncNode.remoteStore.query(filter)
-        : await syncNode.remoteStore.all();
-
-    return syncNode.syncJobExecutor.add(
-      ResetJob(
-        syncNode: syncNode,
-        data: entries,
-      ),
-    );
-  }
+  }) =>
+      syncNode.syncJobExecutor.add(
+        DownloadAllJob(
+          syncNode: syncNode,
+          filter: filter,
+          conflictsTriggerUpload: conflictsTriggerUpload,
+        ),
+      );
 
   @override
-  Future<SyncJobResult> upload({bool multipass = true}) async {
-    final entries = await syncNode.localStore.listEntries();
-    return syncNode.syncJobExecutor
-        .addAll(
-          entries.entries
-              .where((entry) => entry.value.locallyModified)
-              .map((entry) => UploadJob(
-                    syncNode: syncNode,
-                    key: entry.key,
-                    multipass: false,
-                  )),
-        )
-        .reduceToMostImportant();
-  }
+  Future<SyncJobResult> upload({bool multipass = true}) =>
+      syncNode.syncJobExecutor.add(
+        UploadAllJob(
+          syncNode: syncNode,
+          multipass: multipass,
+        ),
+      );
 
   @override
   Future<SyncJobResult> reload({
     Filter? filter,
     bool multipass = true,
-  }) async {
-    final downloadCnt = await download(filter: filter);
-    final uploadCnt = await upload(multipass: multipass);
-    return [downloadCnt, uploadCnt].reduceToMostImportant();
-  }
+  }) =>
+      Stream.fromFutures([
+        download(filter: filter),
+        upload(multipass: multipass),
+      ]).reduceToMostImportant();
 
   @protected
-  Future<void> destroyNode() async {
-    await setSyncMode(SyncMode.none);
-    await syncNode.jobScheduler.purgeJobs(syncNode.storeName);
+  Future<void> destroyRemote() async {
+    assert(
+      _syncMode == SyncMode.none,
+      'Synchronisation must be stopped before destroying a remote',
+    );
     await syncNode.remoteStore.destroy();
   }
 
@@ -180,26 +169,26 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
     }
   }
 
-  Future<Stream<StoreEvent<CipherMessage>>> _createDownstream() =>
-      _syncFilter != null
-          ? syncNode.remoteStore.streamQuery(_syncFilter!)
-          : syncNode.remoteStore.streamAll();
-
   Future<void> _stopDownsync() {
     final cancelFuture = _downloadSub?.cancel();
     _downloadSub = null;
     return cancelFuture ?? Future.value();
   }
+
+  Future<void> _restartDownsyncIfRunning() async {
+    if (_downloadSub != null) {
+      await _stopDownsync();
+      await _startDownsync();
+    }
+  }
+
+  Future<Stream<StoreEvent<CipherMessage>>> _createDownstream() =>
+      _syncFilter != null
+          ? syncNode.remoteStore.streamQuery(_syncFilter!)
+          : syncNode.remoteStore.streamAll();
 }
 
-extension _SyncJobResultListX on Iterable<SyncJobResult> {
-  SyncJobResult reduceToMostImportant() => reduce(
-        (previous, element) =>
-            element.index > previous.index ? element : previous,
-      );
-}
-
-extension _SyncJobResultStreamX on Stream<SyncJobResult> {
+extension _SyncJobResultListX on Stream<SyncJobResult> {
   Future<SyncJobResult> reduceToMostImportant() => reduce(
         (previous, element) =>
             element.index > previous.index ? element : previous,

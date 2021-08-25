@@ -118,8 +118,6 @@ class LazyHiveOnlineStore<T extends Object> implements LazyHiveStore<T> {
   @override
   Future<void> clear() => _run(() => _rawBox.clear());
 
-  // hive extensions
-
   @override
   Future<bool> get isEmpty => count().then((v) => v == 0);
 
@@ -146,11 +144,13 @@ class LazyHiveOnlineStore<T extends Object> implements LazyHiveStore<T> {
         () => _allEntries().map((entry) => entry.value.value!).toList(),
       );
 
-  @protected
-  Future<void> destroyBox() => _rawBox.deleteFromDisk();
+  @override
+  @mustCallSuper
+  Future<void> destroy() => _rawBox.deleteFromDisk();
 
-  @protected
-  Future<void> closeBox() => _rawBox.close();
+  @override
+  @mustCallSuper
+  Future<void> close() => _rawBox.close();
 
   Future<TR> _run<TR>(FutureOr<TR> Function() run) =>
       _rawBox.lock.synchronized(run);

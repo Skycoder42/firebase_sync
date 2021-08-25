@@ -29,4 +29,8 @@ abstract class Store<T extends Object> {
   FutureOr<void> clear();
 
   Stream<StoreEvent<T>> watch();
+
+  Future<void> close();
+
+  Future<void> destroy();
 }

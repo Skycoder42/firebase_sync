@@ -1,10 +1,13 @@
 import 'package:firebase_database_rest/firebase_database_rest.dart';
 
+import 'sync_error.dart';
 import 'sync_job.dart';
 import 'sync_mode.dart';
 
 abstract class SyncController<T extends Object> {
   const SyncController._(); // coverage:ignore-line
+
+  Stream<SyncError> get syncErrors;
 
   SyncMode get syncMode;
   Future<void> setSyncMode(SyncMode syncMode);

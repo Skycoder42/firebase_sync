@@ -2,7 +2,11 @@ import 'dart:async';
 
 import 'package:meta/meta.dart';
 
-import 'sync_error.dart';
+import '../sync_error.dart';
+
+extension SyncErrorTransformerX on Stream<void> {
+  Stream<SyncError> mapSyncErrors() => transform(const SyncErrorTransformer());
+}
 
 @visibleForTesting
 class SyncErrorTransformerSink implements EventSink<void> {
@@ -33,8 +37,4 @@ class SyncErrorTransformer implements StreamTransformer<void, SyncError> {
 
   @override
   StreamTransformer<RS, RT> cast<RS, RT>() => StreamTransformer.castFrom(this);
-}
-
-extension SyncErrorTransformerX on Stream<void> {
-  Stream<SyncError> mapSyncErrors() => transform(const SyncErrorTransformer());
 }

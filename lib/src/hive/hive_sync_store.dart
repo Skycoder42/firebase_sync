@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../core/store/sync_object.dart';
 import '../core/sync/sync_controller_mixin.dart';
+import '../core/sync/sync_mode.dart';
 import '../core/sync/sync_node.dart';
 import '../core/sync_store.dart';
 import 'hive_online_store.dart';
@@ -13,7 +14,7 @@ class HiveSyncStore<T extends Object> extends HiveOnlineStore<T>
     with SyncControllerMixin<T>
     implements SyncStore<T> {
   @internal
-  final void Function() closeCallback;
+  final void Function() onClose;
 
   @override
   @internal
@@ -23,20 +24,25 @@ class HiveSyncStore<T extends Object> extends HiveOnlineStore<T>
     required Box<SyncObject<T>> rawBox,
     required Uuid uuid,
     required this.syncNode,
-    required this.closeCallback,
+    required this.onClose,
   }) : super(rawBox, uuid);
 
   @override
+  @mustCallSuper
   Future<void> destroy() async {
-    closeCallback();
-    await destroyNode();
-    await destroyBox();
+    onClose();
+    await setSyncMode(SyncMode.none);
+    await syncNode.close();
+    await destroyRemote();
+    await super.destroy();
   }
 
   @override
+  @mustCallSuper
   Future<void> close() async {
-    closeCallback();
-    await closeBox();
+    onClose();
+    await syncNode.close();
+    await super.close();
   }
 }
 
@@ -44,7 +50,7 @@ class LazyHiveSyncStore<T extends Object> extends LazyHiveOnlineStore<T>
     with SyncControllerMixin<T>
     implements SyncStore<T> {
   @internal
-  final void Function() closeCallback;
+  final void Function() onClosed;
 
   @override
   @internal
@@ -54,19 +60,24 @@ class LazyHiveSyncStore<T extends Object> extends LazyHiveOnlineStore<T>
     required LazyBox<SyncObject<T>> rawBox,
     required Uuid uuid,
     required this.syncNode,
-    required this.closeCallback,
+    required this.onClosed,
   }) : super(rawBox, uuid);
 
   @override
+  @mustCallSuper
   Future<void> destroy() async {
-    closeCallback();
-    await destroyNode();
-    await destroyBox();
+    onClosed();
+    await setSyncMode(SyncMode.none);
+    await syncNode.close();
+    await destroyRemote();
+    await super.destroy();
   }
 
   @override
+  @mustCallSuper
   Future<void> close() async {
-    closeCallback();
-    await closeBox();
+    onClosed();
+    await syncNode.close();
+    await super.close();
   }
 }

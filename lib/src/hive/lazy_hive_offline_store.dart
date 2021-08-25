@@ -11,22 +11,27 @@ import 'lazy_hive_store.dart';
 
 class LazyHiveOfflineStore<T extends Object>
     implements LazyHiveStore<T>, OfflineStore<T> {
-  final LazyBox<T> _rawBox;
-  final Uuid _uuid;
+  final LazyBox<T> rawBox;
+  final Uuid uuid;
+  final void Function() onClosed;
 
-  LazyHiveOfflineStore(this._rawBox, this._uuid);
+  LazyHiveOfflineStore({
+    required this.rawBox,
+    required this.uuid,
+    required this.onClosed,
+  });
 
   @override
-  Future<int> count() => Future.value(_rawBox.length);
+  Future<int> count() => Future.value(rawBox.length);
 
   @override
-  Future<Iterable<String>> listKeys() => Future.value(_rawBox.keys.cast());
+  Future<Iterable<String>> listKeys() => Future.value(rawBox.keys.cast());
 
   @override
   Future<Map<String, T>> listEntries() => _run(
         () async => Map.fromEntries(
-          await Stream.fromIterable(_rawBox.keys.cast<String>())
-              .asyncMap((key) async => MapEntry(key, await _rawBox.get(key)))
+          await Stream.fromIterable(rawBox.keys.cast<String>())
+              .asyncMap((key) async => MapEntry(key, await rawBox.get(key)))
               .where((entry) => entry.value != null)
               .cast<MapEntry<String, T>>()
               .toList(),
@@ -34,42 +39,42 @@ class LazyHiveOfflineStore<T extends Object>
       );
 
   @override
-  Future<bool> contains(String key) => Future.value(_rawBox.containsKey(key));
+  Future<bool> contains(String key) => Future.value(rawBox.containsKey(key));
 
   @override
-  Future<T?> get(String key) => _run(() => _rawBox.get(key));
+  Future<T?> get(String key) => _run(() => rawBox.get(key));
 
   @override
   Future<String> create(T value) => _run(() async {
-        final key = _rawBox.generateKey(_uuid);
-        await _rawBox.put(key, value);
+        final key = rawBox.generateKey(uuid);
+        await rawBox.put(key, value);
         return key;
       });
 
   @override
-  Future<void> put(String key, T value) => _run(() => _rawBox.put(key, value));
+  Future<void> put(String key, T value) => _run(() => rawBox.put(key, value));
 
   @override
   Future<T?> update(String key, UpdateFn<T> onUpdate) => _run(() async {
-        final value = await _rawBox.get(key);
+        final value = await rawBox.get(key);
         return onUpdate(value).when(
           none: () => value,
           update: (value) async {
-            await _rawBox.put(key, value);
+            await rawBox.put(key, value);
             return value;
           },
           delete: () async {
-            await _rawBox.delete(key);
+            await rawBox.delete(key);
             return null;
           },
         );
       });
 
   @override
-  Future<void> delete(String key) => _run(() => _rawBox.delete(key));
+  Future<void> delete(String key) => _run(() => rawBox.delete(key));
 
   @override
-  Stream<StoreEvent<T>> watch() => _rawBox.watch().map(
+  Stream<StoreEvent<T>> watch() => rawBox.watch().map(
         (entry) => StoreEvent(
           key: entry.key as String,
           value: entry.value as T?,
@@ -77,44 +82,44 @@ class LazyHiveOfflineStore<T extends Object>
       );
 
   @override
-  Future<void> clear() => _run(() => _rawBox.clear());
+  Future<void> clear() => _run(() => rawBox.clear());
 
   @override
-  Future<bool> get isEmpty => Future.value(_rawBox.isEmpty);
+  Future<bool> get isEmpty => Future.value(rawBox.isEmpty);
 
   @override
-  Future<bool> get isNotEmpty => Future.value(_rawBox.isNotEmpty);
+  Future<bool> get isNotEmpty => Future.value(rawBox.isNotEmpty);
 
   @override
-  bool get isOpen => _rawBox.isOpen;
+  bool get isOpen => rawBox.isOpen;
 
   @override
-  bool get lazy => _rawBox.lazy;
+  bool get lazy => rawBox.lazy;
 
   @override
-  String get name => _rawBox.name;
+  String get name => rawBox.name;
 
   @override
-  String? get path => _rawBox.path;
+  String? get path => rawBox.path;
 
   @override
-  Future<void> compact() => _rawBox.compact();
+  Future<void> compact() => rawBox.compact();
 
   @override
   Future<Iterable<T>> values() => _run(
-        () => Stream.fromIterable(_rawBox.keys.cast<String>())
-            .asyncMap((key) => _rawBox.get(key))
+        () => Stream.fromIterable(rawBox.keys.cast<String>())
+            .asyncMap((key) => rawBox.get(key))
             .where((value) => value != null)
             .cast<T>()
             .toList(),
       );
 
   @override
-  Future<void> close() => _rawBox.close();
+  Future<void> close() => rawBox.close();
 
   @override
-  Future<void> destroy() => _rawBox.deleteFromDisk();
+  Future<void> destroy() => rawBox.deleteFromDisk();
 
   Future<TR> _run<TR>(FutureOr<TR> Function() run) =>
-      _rawBox.lock.synchronized(run);
+      rawBox.lock.synchronized(run);
 }
