@@ -12,7 +12,12 @@ abstract class ExpandableSyncJob extends SyncJob {
       return const Stream.empty();
     }
 
-    return expandImpl().transform(SyncJobResultTransformer(completer));
+    try {
+      return expandImpl().transform(SyncJobResultTransformer(completer));
+    } catch (e) {
+      completer.complete(SyncJobResult.failure);
+      rethrow;
+    }
   }
 
   @protected
@@ -35,18 +40,23 @@ class SyncJobResultTransformerSink implements EventSink<ExecutableSyncJob> {
   }
 
   @override
-  void addError(Object error, [StackTrace? stackTrace]) =>
-      sink.addError(error, stackTrace);
+  void addError(Object error, [StackTrace? stackTrace]) {
+    sink.addError(error, stackTrace);
+    _results.add(Future.value(SyncJobResult.failure));
+  }
 
   @override
   void close() {
     sink.close();
     completer.complete(
-      Stream.fromFutures(_results).reduce(_reduceMostRelevant),
+      Stream.fromFutures(_results).fold(
+        SyncJobResult.noop,
+        _foldMostRelevant,
+      ),
     );
   }
 
-  static SyncJobResult _reduceMostRelevant(
+  static SyncJobResult _foldMostRelevant(
     SyncJobResult previous,
     SyncJobResult element,
   ) =>

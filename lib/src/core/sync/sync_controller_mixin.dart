@@ -125,6 +125,7 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
     bool multipass = true,
   }) =>
       Stream.fromFutures([
+        // TODO does not work that way
         download(filter: filter),
         upload(multipass: multipass),
       ]).reduceToMostImportant();

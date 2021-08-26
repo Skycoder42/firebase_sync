@@ -6,8 +6,7 @@ import 'package:firebase_database_rest/rest.dart';
 import 'package:firebase_sync/src/core/crypto/cipher_message.dart';
 import 'package:firebase_sync/src/core/crypto/crypto_firebase_store.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:test/expect.dart';
-import 'package:test/scaffolding.dart';
+import 'package:test/test.dart';
 
 class MockRestApi extends Mock implements RestApi {}
 

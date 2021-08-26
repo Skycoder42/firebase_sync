@@ -37,6 +37,6 @@ class CryptoFirebaseStore extends FirebaseStore<CipherMessage> {
     Map<String, dynamic> updatedFields,
   ) =>
       throw UnsupportedError(
-        'Cannot run patch operations on CryptoFirebaseStore instances',
+        'Cannot run patchData operations on $CryptoFirebaseStore instances',
       );
 }

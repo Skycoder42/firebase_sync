@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'executable_sync_job.dart';
 import 'sync_error.dart';
 import 'sync_job.dart';
 import 'transformers/sync_error_transformer.dart';
@@ -33,8 +34,10 @@ class SyncJobExecutor {
     return syncJob.result;
   }
 
-  Stream<SyncJobResult> addAll(Iterable<SyncJob> syncJobs) =>
-      Stream.fromFutures(syncJobs.map(add));
+  Stream<SyncJobResult> addAll(Iterable<SyncJob> syncJobs) {
+    final results = syncJobs.map(add).toList();
+    return Stream.fromIterable(results).asyncMap((result) => result);
+  }
 
   StreamSubscription<void> addStream(
     Stream<SyncJob> syncJobStream,
@@ -62,9 +65,16 @@ class SyncJobExecutor {
       return const Stream.empty();
     }
 
-    return syncJob
-        .expand()
-        .asyncMap((executableSyncJob) => executableSyncJob.execute());
+    return syncJob.expand().asyncMap(_execute);
+  }
+
+  Future<SyncJob?> _execute(ExecutableSyncJob syncJob) async {
+    if (_streamController.isClosed) {
+      syncJob.abort();
+      return null;
+    }
+
+    return syncJob.execute();
   }
 
   void _checkReschedule(SyncJob? syncJob) {

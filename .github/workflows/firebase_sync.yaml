@@ -41,6 +41,7 @@ jobs:
       - run: dart pub get
       - run: dart run build_runner build
       - run: dart analyze --fatal-infos
+      - run: dart format -onone --set-exit-if-changed .
       - run: dart run dart_test_tools:test -munit -c -p${{ matrix.system }}
       - run: dart run dart_test_tools:test -mintegration -p${{ matrix.system }}
       - uses: VeryGoodOpenSource/very_good_coverage@v1.1.1

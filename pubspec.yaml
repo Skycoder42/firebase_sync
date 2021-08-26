@@ -14,7 +14,7 @@ dependencies:
   json_annotation: ^4.1.0
   meta: ^1.7.0
   path: ^1.8.0
-  sodium: ^1.1.0
+  sodium: ^1.1.1
   synchronized: ^3.0.0
   uuid: ^3.0.4
 
