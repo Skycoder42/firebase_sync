@@ -51,16 +51,10 @@ class SyncJobResultTransformerSink implements EventSink<ExecutableSyncJob> {
     completer.complete(
       Stream.fromFutures(_results).fold(
         SyncJobResult.noop,
-        _foldMostRelevant,
+        (a, b) => a.combine(b),
       ),
     );
   }
-
-  static SyncJobResult _foldMostRelevant(
-    SyncJobResult previous,
-    SyncJobResult element,
-  ) =>
-      element.index > previous.index ? element : previous;
 }
 
 @visibleForTesting

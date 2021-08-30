@@ -8,8 +8,8 @@ import 'expandable_sync_job.dart';
 enum SyncJobResult {
   noop,
   success,
-  failure,
   aborted,
+  failure,
 }
 
 abstract class SyncJob {
@@ -25,6 +25,11 @@ abstract class SyncJob {
       completer.complete(SyncJobResult.aborted);
     }
   }
+}
+
+extension SyncJobResultX on SyncJobResult {
+  SyncJobResult combine(SyncJobResult other) =>
+      other.index > index ? other : this;
 }
 
 extension SyncJobExpandX on SyncJob {

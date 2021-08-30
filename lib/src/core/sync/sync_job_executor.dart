@@ -53,9 +53,6 @@ class SyncJobExecutor {
       cancelOnError: false,
     );
 
-    // TODO test if this works
-    _streamController.done.then((dynamic _) => subscription.cancel());
-
     return subscription;
   }
 

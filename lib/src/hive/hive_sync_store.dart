@@ -4,7 +4,6 @@ import 'package:uuid/uuid.dart';
 
 import '../core/store/sync_object.dart';
 import '../core/sync/sync_controller_mixin.dart';
-import '../core/sync/sync_mode.dart';
 import '../core/sync/sync_node.dart';
 import '../core/sync_store.dart';
 import 'hive_online_store.dart';
@@ -31,9 +30,7 @@ class HiveSyncStore<T extends Object> extends HiveOnlineStore<T>
   @mustCallSuper
   Future<void> destroy() async {
     onClose();
-    await setSyncMode(SyncMode.none);
-    await syncNode.close();
-    await destroyRemote();
+    await destroySync();
     await super.destroy();
   }
 
@@ -41,7 +38,7 @@ class HiveSyncStore<T extends Object> extends HiveOnlineStore<T>
   @mustCallSuper
   Future<void> close() async {
     onClose();
-    await syncNode.close();
+    await closeSync();
     await super.close();
   }
 }
@@ -67,9 +64,7 @@ class LazyHiveSyncStore<T extends Object> extends LazyHiveOnlineStore<T>
   @mustCallSuper
   Future<void> destroy() async {
     onClosed();
-    await setSyncMode(SyncMode.none);
-    await syncNode.close();
-    await destroyRemote();
+    await destroySync();
     await super.destroy();
   }
 
@@ -77,7 +72,7 @@ class LazyHiveSyncStore<T extends Object> extends LazyHiveOnlineStore<T>
   @mustCallSuper
   Future<void> close() async {
     onClosed();
-    await syncNode.close();
+    await closeSync();
     await super.close();
   }
 }

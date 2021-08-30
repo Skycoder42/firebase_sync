@@ -18,7 +18,6 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
   @visibleForOverriding
   SyncNode<T> get syncNode;
 
-  SyncMode _syncMode = SyncMode.none;
   Filter? _syncFilter;
   bool _autoRenew = true;
   StreamSubscription<void>? _uploadSub;
@@ -28,7 +27,17 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
   Stream<SyncError> get syncErrors => syncNode.syncJobExecutor.syncErrors;
 
   @override
-  SyncMode get syncMode => _syncMode;
+  SyncMode get syncMode {
+    if (_uploadSub != null && _downloadSub != null) {
+      return SyncMode.sync;
+    } else if (_uploadSub != null) {
+      return SyncMode.upload;
+    } else if (_downloadSub != null) {
+      return SyncMode.download;
+    } else {
+      return SyncMode.none;
+    }
+  }
 
   @override
   Filter? get syncFilter => _syncFilter;
@@ -54,7 +63,7 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
 
   @override
   Future<void> setSyncMode(SyncMode syncMode) async {
-    if (syncMode == _syncMode) {
+    if (syncMode == this.syncMode) {
       return;
     }
 
@@ -85,10 +94,7 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
           ]);
           break;
       }
-
-      _syncMode = syncMode;
     } catch (e) {
-      _syncMode = SyncMode.none;
       await Future.wait([
         _stopDownsync(),
         _stopUpsync(),
@@ -125,18 +131,24 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
     bool multipass = true,
   }) =>
       Stream.fromFutures([
-        // TODO does not work that way
         download(filter: filter),
         upload(multipass: multipass),
-      ]).reduceToMostImportant();
+      ]).reduce(
+        (previous, element) => previous.combine(element),
+      );
 
   @protected
-  Future<void> destroyRemote() async {
-    assert(
-      _syncMode == SyncMode.none,
-      'Synchronisation must be stopped before destroying a remote',
-    );
+  @nonVirtual
+  Future<void> destroySync() async {
+    await closeSync();
     await syncNode.remoteStore.destroy();
+  }
+
+  @protected
+  @nonVirtual
+  Future<void> closeSync() async {
+    await setSyncMode(SyncMode.none);
+    await syncNode.close();
   }
 
   Future<void> _startUpsync() {
@@ -187,11 +199,4 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
       _syncFilter != null
           ? syncNode.remoteStore.streamQuery(_syncFilter!)
           : syncNode.remoteStore.streamAll();
-}
-
-extension _SyncJobResultListX on Stream<SyncJobResult> {
-  Future<SyncJobResult> reduceToMostImportant() => reduce(
-        (previous, element) =>
-            element.index > previous.index ? element : previous,
-      );
 }

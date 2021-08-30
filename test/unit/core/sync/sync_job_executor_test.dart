@@ -48,216 +48,285 @@ void main() {
     return TestableExpandableSyncJob(mock);
   }
 
-  late SyncJobExecutor sut;
+  group('SyncJobExecutor', () {
+    late SyncJobExecutor sut;
 
-  setUp(() {
-    sut = SyncJobExecutor();
-  });
-
-  tearDown(() async {
-    await sut.close();
-  });
-
-  group('add', () {
-    test('executes jobs and returns the job result', () async {
-      final job = createExecJob();
-      final result = sut.add(job);
-
-      await expectLater(result, completion(SyncJobResult.success));
-
-      verify(() => job.executeImpl());
+    setUp(() {
+      sut = SyncJobExecutor();
     });
 
-    test('asserts if already closed', () async {
+    tearDown(() async {
       await sut.close();
-      await expectLater(
-        () => sut.add(createExecJob()),
-        throwsA(isA<AssertionError>()),
-      );
-    });
-  });
-
-  group('addAll', () {
-    test('executes jobs in order and returns the job results', () async {
-      final job1 = createExecJob(const ExecutionResult.noop());
-      final job2 = createExecJob();
-      final job3 = createExecJob(const ExecutionResult.noop());
-      final result = sut.addAll([job1, job2, job3]);
-
-      await expectLater(
-        result,
-        emitsInOrder(<dynamic>[
-          SyncJobResult.noop,
-          SyncJobResult.success,
-          SyncJobResult.noop,
-          emitsDone,
-        ]),
-      );
-
-      verifyInOrder([
-        () => job1.executeImpl(),
-        () => job2.executeImpl(),
-        () => job3.executeImpl(),
-      ]);
     });
 
-    test('asserts if already closed', () async {
-      await sut.close();
-      await expectLater(
-        () => sut.addAll([createExecJob()]),
-        throwsA(isA<AssertionError>()),
-      );
-    });
-  });
+    group('add', () {
+      test('executes jobs and returns the job result', () async {
+        final job = createExecJob();
+        final result = sut.add(job);
 
-  // TODO test streaming
+        await expectLater(result, completion(SyncJobResult.success));
 
-  group('processing', () {
-    test('executes jobs one after another', () async {
-      final completer = Completer<ExecutionResult>();
-      final job1 = createExecJob(completer.future);
-      final job2 = createExecJob();
+        verify(() => job.executeImpl());
+      });
 
-      final result = sut.addAll([job1, job2]);
-      expect(
-        result,
-        emitsInOrder(<dynamic>[
-          SyncJobResult.noop,
-          SyncJobResult.success,
-          emitsDone,
-        ]),
-      );
-
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-      verify(() => job1.executeImpl());
-      verifyNever(() => job2.executeImpl());
-
-      completer.complete(const ExecutionResult.noop());
-
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-      verify(() => job2.executeImpl());
+      test('asserts if already closed', () async {
+        await sut.close();
+        await expectLater(
+          () => sut.add(createExecJob()),
+          throwsA(isA<AssertionError>()),
+        );
+      });
     });
 
-    test('executes expanded jobs before the next one', () async {
-      final job1 = createExecJob();
-      final completer2 = Completer<ExecutionResult>();
-      final job2 = createExecJob(completer2.future);
-      final streamController3 = StreamController<ExecutableSyncJob>();
-      final job3 = createExpaJob(streamController3.stream);
-      final job4 = createExecJob(const ExecutionResult.noop());
+    group('addAll', () {
+      test('executes jobs in order and returns the job results', () async {
+        final job1 = createExecJob(const ExecutionResult.noop());
+        final job2 = createExecJob();
+        final job3 = createExecJob(const ExecutionResult.noop());
+        final result = sut.addAll([job1, job2, job3]);
 
-      expect(sut.add(job3), completion(SyncJobResult.success));
-      expect(sut.add(job4), completion(SyncJobResult.noop));
+        await expectLater(
+          result,
+          emitsInOrder(<dynamic>[
+            SyncJobResult.noop,
+            SyncJobResult.success,
+            SyncJobResult.noop,
+            emitsDone,
+          ]),
+        );
 
-      await Future<void>.delayed(const Duration(milliseconds: 100));
+        verifyInOrder([
+          () => job1.executeImpl(),
+          () => job2.executeImpl(),
+          () => job3.executeImpl(),
+        ]);
+      });
 
-      verify(() => job3.expandImpl());
-      verifyNever(() => job1.executeImpl());
-      verifyNever(() => job2.executeImpl());
-      verifyNever(() => job4.executeImpl());
-
-      streamController3..add(job1)..add(job2);
-      expect(streamController3.close(), completes);
-
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-
-      verifyInOrder([
-        () => job1.executeImpl(),
-        () => job2.executeImpl(),
-      ]);
-      verifyNever(() => job4.executeImpl());
-
-      completer2.complete(const ExecutionResult.noop());
-
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-
-      verify(() => job4.executeImpl());
+      test('asserts if already closed', () async {
+        await sut.close();
+        await expectLater(
+          () => sut.addAll([createExecJob()]),
+          throwsA(isA<AssertionError>()),
+        );
+      });
     });
 
-    test('schedules new jobs if continued', () async {
-      final job11 = createExecJob(const ExecutionResult.noop());
-      final job1 = createExecJob(ExecutionResult.continued(job11));
-      final job2 = createExecJob();
+    group('addStream', () {
+      void expectSubCompletes(StreamSubscription<void> sub) {
+        final resCompleter = Completer<void>();
+        sub.onDone(resCompleter.complete);
+        return expect(resCompleter.future, completes);
+      }
 
-      await expectLater(
-        sut.addAll([job1, job2]),
-        emitsInOrder(<dynamic>[
-          SyncJobResult.noop,
-          SyncJobResult.success,
-          emitsDone,
-        ]),
-      );
+      test('adds all stream events', () async {
+        final job1 = createExecJob(const ExecutionResult.noop());
+        final job2 = createExecJob();
+        final job3 = createExecJob(const ExecutionResult.noop());
 
-      verifyInOrder([
-        () => job1.executeImpl(),
-        () => job2.executeImpl(),
-        () => job11.executeImpl(),
-      ]);
-    });
+        final sub = sut.addStream(Stream.fromIterable([job1, job2, job3]));
+        expectSubCompletes(sub);
 
-    test('aborts all pending jobs if closed', () async {
-      final completer21 = Completer<ExecutionResult>();
-      final job1 = createExecJob();
-      final job21 = createExecJob(completer21.future);
-      final job211 = createExecJob();
-      final job22 = createExecJob();
-      final job2 = createExpaJob(Stream.fromIterable([job21, job22]));
-      final job3 = createExecJob();
+        await Future<void>.delayed(const Duration(milliseconds: 100));
 
-      expect(sut.add(job1), completion(SyncJobResult.success));
-      expect(sut.add(job2), completion(SyncJobResult.aborted));
-      expect(sut.add(job3), completion(SyncJobResult.aborted));
-      expect(job21.result, completion(SyncJobResult.aborted));
-      expect(job211.result, completion(SyncJobResult.aborted));
-      expect(job22.result, completion(SyncJobResult.aborted));
+        verifyInOrder([
+          () => job1.executeImpl(),
+          () => job2.executeImpl(),
+          () => job3.executeImpl(),
+        ]);
 
-      await Future<void>.delayed(const Duration(milliseconds: 100));
+        expect(sub.cancel(), completes);
+      });
 
-      verifyInOrder([
-        () => job1.executeImpl(),
-        () => job2.expandImpl(),
-        () => job21.executeImpl(),
-      ]);
+      test('forwards errors and continues executing', () async {
+        final job1 = createExecJob();
+        final job2 = createExecJob();
+        final stream = Stream.fromFutures([
+          Future.value(job1),
+          Future<SyncJob>.error(Exception('error')),
+          Future.value(job2),
+        ]);
 
-      completer21.complete(ExecutionResult.continued(job211));
-      await expectLater(sut.close(), completes);
-
-      verifyNever(() => job211.executeImpl());
-      verifyNever(() => job22.executeImpl());
-      verifyNever(() => job3.executeImpl());
-    });
-
-    test('transforms job exceptions into SyncErrors', () async {
-      final job1 = createExecJob(Future(() => throw Exception('error1')));
-      final job2 = createExpaJob(Stream.error(Exception('error2')));
-      final mock3 = MockExpandableSyncJob();
-      when(() => mock3.expandImpl()).thenThrow(Exception('error3'));
-      final job3 = TestableExpandableSyncJob(mock3);
-
-      expect(
-        sut.syncErrors,
-        emitsInOrder(<dynamic>[
-          isA<SyncError>().having(
+        expect(
+          sut.syncErrors,
+          emits(isA<SyncError>().having(
             (e) => e.error.toString(),
             'error',
-            'Exception: error1',
-          ),
-          isA<SyncError>().having(
-            (e) => e.error.toString(),
-            'error',
-            'Exception: error2',
-          ),
-          isA<SyncError>().having(
-            (e) => e.error.toString(),
-            'error',
-            'Exception: error3',
-          ),
-        ]),
-      );
+            'Exception: error',
+          )),
+        );
 
-      expect(sut.add(job1), completion(SyncJobResult.failure));
-      expect(sut.add(job2), completion(SyncJobResult.failure));
-      expect(sut.add(job3), completion(SyncJobResult.failure));
+        final sub = sut.addStream(stream);
+        expectSubCompletes(sub);
+
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+
+        verify(() => job1.executeImpl());
+        verify(() => job2.executeImpl());
+
+        expect(sub.cancel(), completes);
+      });
+
+      test('asserts if already closed', () async {
+        await sut.close();
+        await expectLater(
+          () => sut.addStream(Stream.value(createExecJob())),
+          throwsA(isA<AssertionError>()),
+        );
+      });
+    });
+
+    group('processing', () {
+      test('executes jobs one after another', () async {
+        final completer = Completer<ExecutionResult>();
+        final job1 = createExecJob(completer.future);
+        final job2 = createExecJob();
+
+        final result = sut.addAll([job1, job2]);
+        expect(
+          result,
+          emitsInOrder(<dynamic>[
+            SyncJobResult.noop,
+            SyncJobResult.success,
+            emitsDone,
+          ]),
+        );
+
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        verify(() => job1.executeImpl());
+        verifyNever(() => job2.executeImpl());
+
+        completer.complete(const ExecutionResult.noop());
+
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        verify(() => job2.executeImpl());
+      });
+
+      test('executes expanded jobs before the next one', () async {
+        final job1 = createExecJob();
+        final completer2 = Completer<ExecutionResult>();
+        final job2 = createExecJob(completer2.future);
+        final streamController3 = StreamController<ExecutableSyncJob>();
+        final job3 = createExpaJob(streamController3.stream);
+        final job4 = createExecJob(const ExecutionResult.noop());
+
+        expect(sut.add(job3), completion(SyncJobResult.success));
+        expect(sut.add(job4), completion(SyncJobResult.noop));
+
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+
+        verify(() => job3.expandImpl());
+        verifyNever(() => job1.executeImpl());
+        verifyNever(() => job2.executeImpl());
+        verifyNever(() => job4.executeImpl());
+
+        streamController3..add(job1)..add(job2);
+        expect(streamController3.close(), completes);
+
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+
+        verifyInOrder([
+          () => job1.executeImpl(),
+          () => job2.executeImpl(),
+        ]);
+        verifyNever(() => job4.executeImpl());
+
+        completer2.complete(const ExecutionResult.noop());
+
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+
+        verify(() => job4.executeImpl());
+      });
+
+      test('schedules new jobs if continued', () async {
+        final job11 = createExecJob(const ExecutionResult.noop());
+        final job1 = createExecJob(ExecutionResult.continued(job11));
+        final job2 = createExecJob();
+
+        await expectLater(
+          sut.addAll([job1, job2]),
+          emitsInOrder(<dynamic>[
+            SyncJobResult.noop,
+            SyncJobResult.success,
+            emitsDone,
+          ]),
+        );
+
+        verifyInOrder([
+          () => job1.executeImpl(),
+          () => job2.executeImpl(),
+          () => job11.executeImpl(),
+        ]);
+      });
+
+      test('aborts all pending jobs if closed', () async {
+        final completer21 = Completer<ExecutionResult>();
+        final job1 = createExecJob();
+        final job21 = createExecJob(completer21.future);
+        final job211 = createExecJob();
+        final job22 = createExecJob();
+        final job2 = createExpaJob(Stream.fromIterable([job21, job22]));
+        final job3 = createExecJob();
+
+        expect(sut.add(job1), completion(SyncJobResult.success));
+        expect(sut.add(job2), completion(SyncJobResult.aborted));
+        expect(sut.add(job3), completion(SyncJobResult.aborted));
+        expect(job21.result, completion(SyncJobResult.aborted));
+        expect(job211.result, completion(SyncJobResult.aborted));
+        expect(job22.result, completion(SyncJobResult.aborted));
+
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+
+        verifyInOrder([
+          () => job1.executeImpl(),
+          () => job2.expandImpl(),
+          () => job21.executeImpl(),
+        ]);
+
+        completer21.complete(ExecutionResult.continued(job211));
+        await expectLater(sut.close(), completes);
+
+        verifyNever(() => job211.executeImpl());
+        verifyNever(() => job22.executeImpl());
+        verifyNever(() => job3.executeImpl());
+      });
+
+      test('transforms job exceptions into SyncErrors', () async {
+        final job1 = createExecJob(Future(() => throw Exception('error1')));
+        final job2 = createExpaJob(Stream.error(Exception('error2')));
+        final mock3 = MockExpandableSyncJob();
+        when(() => mock3.expandImpl()).thenThrow(Exception('error3'));
+        final job3 = TestableExpandableSyncJob(mock3);
+
+        expect(
+          sut.syncErrors,
+          emitsInOrder(<dynamic>[
+            isA<SyncError>().having(
+              (e) => e.error.toString(),
+              'error',
+              'Exception: error1',
+            ),
+            isA<SyncError>().having(
+              (e) => e.error.toString(),
+              'error',
+              'Exception: error2',
+            ),
+            isA<SyncError>().having(
+              (e) => e.error.toString(),
+              'error',
+              'Exception: error3',
+            ),
+          ]),
+        );
+
+        expect(sut.add(job1), completion(SyncJobResult.failure));
+        expect(sut.add(job2), completion(SyncJobResult.failure));
+        expect(sut.add(job3), completion(SyncJobResult.failure));
+      });
+
+      test('closes error stream when closed', () {
+        expect(sut.syncErrors, emitsDone);
+        expect(sut.close(), completes);
+      });
     });
   });
 }

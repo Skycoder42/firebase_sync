@@ -4,18 +4,20 @@ import 'package:firebase_sync/src/core/util/uint8list_converter.dart';
 import 'package:test/test.dart';
 
 void main() {
-  final binaryData = Uint8List.fromList(List.generate(14, (index) => index));
-  const base64Data = 'AAECAwQFBgcICQoLDA0=';
+  group('Uint8ListConverter', () {
+    final binaryData = Uint8List.fromList(List.generate(14, (index) => index));
+    const base64Data = 'AAECAwQFBgcICQoLDA0=';
 
-  const sut = Uint8ListConverter();
+    const sut = Uint8ListConverter();
 
-  test('toJson creates base64 encoded data', () {
-    final result = sut.toJson(binaryData);
-    expect(result, base64Data);
-  });
+    test('toJson creates base64 encoded data', () {
+      final result = sut.toJson(binaryData);
+      expect(result, base64Data);
+    });
 
-  test('fromJson decodes base64 data', () {
-    final result = sut.fromJson(base64Data);
-    expect(result, binaryData);
+    test('fromJson decodes base64 data', () {
+      final result = sut.fromJson(base64Data);
+      expect(result, binaryData);
+    });
   });
 }

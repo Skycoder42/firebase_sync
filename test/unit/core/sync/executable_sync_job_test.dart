@@ -16,83 +16,85 @@ class ExecutableSyncJobSut extends ExecutableSyncJob {
 }
 
 void main() {
-  final sutMock = MockExecutableSyncJob();
+  group('ExecutableSyncJobSut', () {
+    final sutMock = MockExecutableSyncJob();
 
-  late ExecutableSyncJobSut sut;
+    late ExecutableSyncJobSut sut;
 
-  setUp(() {
-    reset(sutMock);
-
-    sut = ExecutableSyncJobSut(sutMock);
-  });
-
-  group('execute', () {
     setUp(() {
-      when(() => sutMock.executeImpl()).thenAnswer(
-        (i) async => const ExecutionResult.modified(),
-      );
+      reset(sutMock);
+
+      sut = ExecutableSyncJobSut(sutMock);
     });
 
-    test('calls executeImpl', () async {
-      await sut.execute();
+    group('execute', () {
+      setUp(() {
+        when(() => sutMock.executeImpl()).thenAnswer(
+          (i) async => const ExecutionResult.modified(),
+        );
+      });
 
-      verify(() => sutMock.executeImpl());
-    });
+      test('calls executeImpl', () async {
+        await sut.execute();
 
-    test('calling twice only executes once', () async {
-      await sut.execute();
-      await sut.execute();
+        verify(() => sutMock.executeImpl());
+      });
 
-      verify(() => sutMock.executeImpl()).called(1);
-    });
+      test('calling twice only executes once', () async {
+        await sut.execute();
+        await sut.execute();
 
-    test('result returns success if executeImpl returns modified', () {
-      expect(sut.execute(), completion(isNull));
-      expect(sut.result, completion(SyncJobResult.success));
-    });
+        verify(() => sutMock.executeImpl()).called(1);
+      });
 
-    test('result returns noop if executeImpl returns noop', () {
-      when(() => sutMock.executeImpl())
-          .thenAnswer((i) async => const ExecutionResult.noop());
+      test('result returns success if executeImpl returns modified', () {
+        expect(sut.execute(), completion(isNull));
+        expect(sut.result, completion(SyncJobResult.success));
+      });
 
-      expect(sut.execute(), completion(isNull));
-      expect(sut.result, completion(SyncJobResult.noop));
-    });
+      test('result returns noop if executeImpl returns noop', () {
+        when(() => sutMock.executeImpl())
+            .thenAnswer((i) async => const ExecutionResult.noop());
 
-    test('result returns failure if executeImpl throws', () {
-      when(() => sutMock.executeImpl()).thenThrow(Exception());
+        expect(sut.execute(), completion(isNull));
+        expect(sut.result, completion(SyncJobResult.noop));
+      });
 
-      expect(sut.execute, throwsA(isA<Exception>()));
+      test('result returns failure if executeImpl throws', () {
+        when(() => sutMock.executeImpl()).thenThrow(Exception());
 
-      expect(sut.result, completion(SyncJobResult.failure));
-    });
+        expect(sut.execute, throwsA(isA<Exception>()));
 
-    test('returns result of next job if specified', () {
-      const result = SyncJobResult.aborted;
-      final nextJob = MockExecutableSyncJob();
-      when(() => nextJob.result).thenAnswer((i) async => result);
+        expect(sut.result, completion(SyncJobResult.failure));
+      });
 
-      when(() => sutMock.executeImpl())
-          .thenAnswer((i) async => ExecutionResult.continued(nextJob));
+      test('returns result of next job if specified', () {
+        const result = SyncJobResult.aborted;
+        final nextJob = MockExecutableSyncJob();
+        when(() => nextJob.result).thenAnswer((i) async => result);
 
-      expect(sut.execute(), completion(nextJob));
-      expect(sut.result, completion(SyncJobResult.aborted));
-    });
+        when(() => sutMock.executeImpl())
+            .thenAnswer((i) async => ExecutionResult.continued(nextJob));
 
-    test('result returns abort if aborted', () {
-      sut.abort();
+        expect(sut.execute(), completion(nextJob));
+        expect(sut.result, completion(SyncJobResult.aborted));
+      });
 
-      expect(sut.result, completion(SyncJobResult.aborted));
-      expect(sut.execute(), completion(isNull));
-    });
+      test('result returns abort if aborted', () {
+        sut.abort();
 
-    test('calling after aborting does nothing', () async {
-      sut.abort();
+        expect(sut.result, completion(SyncJobResult.aborted));
+        expect(sut.execute(), completion(isNull));
+      });
 
-      await expectLater(sut.execute(), completion(isNull));
-      await expectLater(sut.result, completion(SyncJobResult.aborted));
+      test('calling after aborting does nothing', () async {
+        sut.abort();
 
-      verifyNever(() => sutMock.executeImpl());
+        await expectLater(sut.execute(), completion(isNull));
+        await expectLater(sut.result, completion(SyncJobResult.aborted));
+
+        verifyNever(() => sutMock.executeImpl());
+      });
     });
   });
 }

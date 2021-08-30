@@ -25,8 +25,6 @@ class ExpandableSyncJobSut extends ExpandableSyncJob {
 }
 
 void main() {
-  // TODO test exception handling
-
   MockExecutableSyncJob createExecJob([
     SyncJobResult result = SyncJobResult.success,
   ]) {
@@ -89,6 +87,20 @@ void main() {
           ..add(job1)
           ..add(job2)
           ..add(job3)
+          ..close();
+
+        final result = verify(() => mockCompleter.complete(captureAny()))
+            .captured
+            .single as Future<SyncJobResult>;
+        expect(result, completion(SyncJobResult.failure));
+      });
+
+      test('returns failure if addError was triggered', () {
+        sut
+          ..add(createExecJob())
+          ..add(createExecJob(SyncJobResult.noop))
+          ..addError(Exception('error'))
+          ..add(createExecJob(SyncJobResult.aborted))
           ..close();
 
         final result = verify(() => mockCompleter.complete(captureAny()))
@@ -168,6 +180,15 @@ void main() {
       await expectLater(sut.result, completion(SyncJobResult.aborted));
 
       verifyNever(() => sutMock.expandImpl());
+    });
+
+    test('returns failure and forwards error if expandImpl throws', () async {
+      when(() => sutMock.expandImpl()).thenThrow(Exception('error'));
+
+      expect(sut.expand, throwsA(isA<Exception>()));
+      await expectLater(sut.result, completion(SyncJobResult.failure));
+
+      verify(() => sutMock.expandImpl());
     });
   });
 }

@@ -19,8 +19,8 @@ void main() {
     const [
       Tuple2(SyncJobResult.noop, 0),
       Tuple2(SyncJobResult.success, 1),
-      Tuple2(SyncJobResult.failure, 2),
-      Tuple2(SyncJobResult.aborted, 3),
+      Tuple2(SyncJobResult.aborted, 2),
+      Tuple2(SyncJobResult.failure, 3),
     ],
     (fixture) {
       expect(fixture.item1.index, fixture.item2);
