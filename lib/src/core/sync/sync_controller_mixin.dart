@@ -46,23 +46,23 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
   bool get autoRenew => _autoRenew;
 
   @override
-  Future<void> setSyncFilter(Filter? filter) async {
+  set syncFilter(Filter? filter) {
     _syncFilter = filter;
-    await _restartDownsyncIfRunning();
+    _restartDownsyncIfRunning();
   }
 
   @override
-  Future<void> setAutoRenew(bool autoRenew) async {
+  set autoRenew(bool autoRenew) {
     if (autoRenew == _autoRenew) {
       return;
     }
 
     _autoRenew = autoRenew;
-    await _restartDownsyncIfRunning();
+    _restartDownsyncIfRunning();
   }
 
   @override
-  Future<void> setSyncMode(SyncMode syncMode) async {
+  set syncMode(SyncMode syncMode) {
     if (syncMode == this.syncMode) {
       return;
     }
@@ -70,35 +70,25 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
     try {
       switch (syncMode) {
         case SyncMode.none:
-          await Future.wait([
-            _stopDownsync(),
-            _stopUpsync(),
-          ]);
+          _stopDownsync();
+          _stopUpsync();
           break;
         case SyncMode.upload:
-          await Future.wait([
-            _stopDownsync(),
-            _startUpsync(),
-          ]);
+          _stopDownsync();
+          _startUpsync();
           break;
         case SyncMode.download:
-          await Future.wait([
-            _stopUpsync(),
-            _startDownsync(),
-          ]);
+          _stopUpsync();
+          _startDownsync();
           break;
         case SyncMode.sync:
-          await Future.wait([
-            _startUpsync(),
-            _startDownsync(),
-          ]);
+          _startUpsync();
+          _startDownsync();
           break;
       }
     } catch (e) {
-      await Future.wait([
-        _stopDownsync(),
-        _stopUpsync(),
-      ]);
+      _stopDownsync();
+      _stopUpsync();
       rethrow;
     }
   }
@@ -147,33 +137,35 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
   @protected
   @nonVirtual
   Future<void> closeSync() async {
-    await setSyncMode(SyncMode.none);
+    await Future.wait(
+      [_downloadSub?.cancel(), _uploadSub?.cancel()]
+          .where((future) => future != null)
+          .cast(),
+    );
     await syncNode.close();
   }
 
-  Future<void> _startUpsync() {
+  void _startUpsync() {
     _uploadSub ??= syncNode.syncJobExecutor.addStream(
       syncNode.localStore.watch().asUploadJobs(syncNode),
     );
-    return Future.value();
   }
 
-  Future<void> _stopUpsync() {
-    final cancelFuture = _uploadSub?.cancel();
+  void _stopUpsync() {
+    _uploadSub?.cancel().catchError(syncNode.syncJobExecutor.addError);
     _uploadSub = null;
-    return cancelFuture ?? Future.value();
   }
 
-  Future<void> _startDownsync() async {
+  void _startDownsync() {
     if (_downloadSub == null) {
       final Stream<StoreEvent<CipherMessage>> stream;
       if (autoRenew) {
-        stream = AutoRenewStream.fromStream(
-          await _createDownstream(),
+        stream = AutoRenewStream(
           _createDownstream,
         );
       } else {
-        stream = await _createDownstream();
+        stream = Stream.fromFuture(_createDownstream())
+            .asyncExpand((stream) => stream);
       }
 
       _downloadSub ??= syncNode.syncJobExecutor.addStream(
@@ -182,16 +174,15 @@ mixin SyncControllerMixin<T extends Object> implements SyncController<T> {
     }
   }
 
-  Future<void> _stopDownsync() {
-    final cancelFuture = _downloadSub?.cancel();
+  void _stopDownsync() {
+    _downloadSub?.cancel().catchError(syncNode.syncJobExecutor.addError);
     _downloadSub = null;
-    return cancelFuture ?? Future.value();
   }
 
-  Future<void> _restartDownsyncIfRunning() async {
+  void _restartDownsyncIfRunning() {
     if (_downloadSub != null) {
-      await _stopDownsync();
-      await _startDownsync();
+      _stopDownsync();
+      _startDownsync();
     }
   }
 

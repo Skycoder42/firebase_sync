@@ -10,14 +10,13 @@ abstract class SyncController<T extends Object> {
   Stream<SyncError> get syncErrors;
 
   SyncMode get syncMode;
-  Future<void> setSyncMode(SyncMode syncMode);
+  set syncMode(SyncMode syncMode);
 
   Filter? get syncFilter;
-  Future<void> setSyncFilter(Filter? filter);
+  set syncFilter(Filter? filter);
 
   bool get autoRenew;
-  // ignore: avoid_positional_boolean_parameters
-  Future<void> setAutoRenew(bool autoRenew);
+  set autoRenew(bool autoRenew);
 
   Future<SyncJobResult> download({
     Filter? filter,

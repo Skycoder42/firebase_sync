@@ -8,6 +8,7 @@ import 'package:firebase_sync/src/core/sync/sync_job.dart';
 import 'package:firebase_sync/src/core/sync/sync_job_executor.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
+import 'package:tuple/tuple.dart';
 
 class MockExecutableSyncJob extends Mock implements ExecutableSyncJob {}
 
@@ -172,6 +173,34 @@ void main() {
           () => sut.addStream(Stream.value(createExecJob())),
           throwsA(isA<AssertionError>()),
         );
+      });
+    });
+
+    group('addError', () {
+      test('forwards error as SyncError', () {
+        final error = Exception('error');
+        final stackTrace = StackTrace.current;
+
+        expect(sut.syncErrors, emits(SyncError(error, stackTrace)));
+
+        sut.addError(error, stackTrace);
+      });
+
+      test('forwards error to zone if already closed', () async {
+        final error = Exception('error');
+        final stackTrace = StackTrace.current;
+
+        final errors = <Tuple2<Object, StackTrace>>[];
+
+        await sut.close();
+        runZonedGuarded(
+          () => sut.addError(error, stackTrace),
+          (e, s) => errors.add(Tuple2(e, s)),
+        );
+
+        expect(errors, hasLength(1));
+        expect(errors.single.item1, error);
+        expect(errors.single.item2, stackTrace);
       });
     });
 

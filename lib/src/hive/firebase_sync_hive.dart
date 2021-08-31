@@ -93,8 +93,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
             conflictResolver: conflictResolver,
           ),
           onClose: onClosed,
-        );
-        await store.setSyncMode(syncMode);
+        )..syncMode = syncMode;
         return store;
       });
 
@@ -139,8 +138,7 @@ class FirebaseSyncHive extends FirebaseSyncBase {
             conflictResolver: conflictResolver,
           ),
           onClosed: onClosed,
-        );
-        await store.setSyncMode(syncMode);
+        )..syncMode = syncMode;
         return store;
       });
 

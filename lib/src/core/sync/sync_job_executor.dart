@@ -56,6 +56,16 @@ class SyncJobExecutor {
     return subscription;
   }
 
+  void addError(Object error, [StackTrace? stackTrace]) {
+    if (_streamController.isClosed) {
+      // If the error cannot be handeled, "rethrow" it by adding it to the zone
+      Zone.current.handleUncaughtError(error, stackTrace ?? StackTrace.current);
+      return;
+    }
+
+    _streamController.addError(error, stackTrace);
+  }
+
   Stream<SyncJob?> _expandAndExecute(SyncJob syncJob) {
     if (_streamController.isClosed) {
       syncJob.abort();
