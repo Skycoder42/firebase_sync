@@ -9,6 +9,7 @@ import 'conflict_resolver_mixin.dart';
 
 class UploadJob<T extends Object> extends ExecutableSyncJob
     with ConflictResolverMixin<T> {
+  @override
   final SyncNode<T> syncNode;
   final bool multipass;
 
@@ -148,7 +149,6 @@ class UploadJob<T extends Object> extends ExecutableSyncJob
           localData: oldValue,
           remoteData: remoteData,
           remoteTag: transaction.value.remoteTagOrDefault,
-          syncNode: syncNode,
         );
       },
     );

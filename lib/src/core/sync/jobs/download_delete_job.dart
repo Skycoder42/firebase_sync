@@ -44,7 +44,6 @@ class DownloadDeleteJob<T extends Object> extends DownloadJobBase<T> {
           localData: localData,
           remoteData: null,
           remoteTag: SyncObject.noRemoteDataTag,
-          syncNode: syncNode,
         );
       },
     );

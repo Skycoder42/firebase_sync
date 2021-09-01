@@ -8,15 +8,18 @@ import '../sync_job.dart';
 import '../sync_node.dart';
 
 mixin ConflictResolverMixin<T extends Object> on SyncJob {
+  @visibleForOverriding
+  SyncNode<T> get syncNode;
+
   @protected
   UpdateAction<SyncObject<T>> resolveConflict({
     required String key,
     required SyncObject<T> localData,
     required T? remoteData,
     required Uint8List remoteTag,
-    required SyncNode<T> syncNode,
   }) {
     assert(localData.locallyModified);
+    assert(localData.remoteTagOrDefault != remoteTag);
 
     return syncNode.conflictResolver
         .resolve(

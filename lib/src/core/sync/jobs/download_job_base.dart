@@ -7,6 +7,7 @@ import 'upload_job.dart';
 
 abstract class DownloadJobBase<T extends Object> extends ExecutableSyncJob
     with ConflictResolverMixin<T> {
+  @override
   final SyncNode<T> syncNode;
   final bool conflictsTriggerUpload;
 

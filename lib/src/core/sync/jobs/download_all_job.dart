@@ -1,4 +1,5 @@
 import 'package:firebase_database_rest/firebase_database_rest.dart';
+import 'package:meta/meta.dart';
 
 import '../executable_sync_job.dart';
 import '../expandable_sync_job.dart';
@@ -19,6 +20,7 @@ class DownloadAllJob<T extends Object> extends ExpandableSyncJob
   });
 
   @override
+  @protected
   Stream<ExecutableSyncJob> expandImpl() => Stream.fromFuture(
         filter != null
             ? syncNode.remoteStore.query(filter!)

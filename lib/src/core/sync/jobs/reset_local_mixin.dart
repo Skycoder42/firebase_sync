@@ -11,6 +11,7 @@ mixin ResetLocalMixin<T extends Object> on ExpandableSyncJob {
   @visibleForOverriding
   SyncNode<T> get syncNode;
 
+  @protected
   Iterable<ExecutableSyncJob> generateJobs({
     required Map<String, CipherMessage> data,
     required bool conflictsTriggerUpload,
@@ -28,7 +29,7 @@ mixin ResetLocalMixin<T extends Object> on ExpandableSyncJob {
     required bool conflictsTriggerUpload,
   }) =>
       syncNode.localStore.rawKeys.toSet().difference(data.keys.toSet()).map(
-            (key) => DownloadDeleteJob(
+            (key) => DownloadDeleteJob<T>(
               key: key,
               syncNode: syncNode,
               conflictsTriggerUpload: conflictsTriggerUpload,
@@ -40,7 +41,7 @@ mixin ResetLocalMixin<T extends Object> on ExpandableSyncJob {
     required bool conflictsTriggerUpload,
   }) =>
       data.entries.map(
-        (entry) => DownloadUpdateJob(
+        (entry) => DownloadUpdateJob<T>(
           key: entry.key,
           remoteCipher: entry.value,
           syncNode: syncNode,

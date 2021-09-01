@@ -60,7 +60,6 @@ class DownloadUpdateJob<T extends Object> extends DownloadJobBase<T> {
           localData: localData,
           remoteData: plainData,
           remoteTag: remoteCipher.remoteTag,
-          syncNode: syncNode,
         );
       },
     );
