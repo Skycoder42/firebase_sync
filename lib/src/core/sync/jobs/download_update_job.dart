@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:meta/meta.dart';
+
 import '../../crypto/cipher_message.dart';
 import '../../store/sync_object.dart';
 import '../../store/update_action.dart';
@@ -22,6 +24,7 @@ class DownloadUpdateJob<T extends Object> extends DownloadJobBase<T> {
         );
 
   @override
+  @protected
   Future<ExecutionResult> executeImpl() async {
     // decrypt remote data
     final dynamic plainJson = await syncNode.dataEncryptor.decrypt(

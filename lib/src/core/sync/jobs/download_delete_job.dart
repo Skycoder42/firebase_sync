@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:meta/meta.dart';
+
 import '../../store/sync_object.dart';
 import '../../store/update_action.dart';
 import '../executable_sync_job.dart';
@@ -19,8 +21,8 @@ class DownloadDeleteJob<T extends Object> extends DownloadJobBase<T> {
         );
 
   @override
+  @protected
   Future<ExecutionResult> executeImpl() async {
-    // update locally
     late final Uint8List oldRemoteTag;
     final updatedEntry = await syncNode.localStore.update(
       key,

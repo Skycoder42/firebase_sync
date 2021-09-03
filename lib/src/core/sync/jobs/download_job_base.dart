@@ -22,7 +22,7 @@ abstract class DownloadJobBase<T extends Object> extends ExecutableSyncJob
     required bool modified,
     required bool hasConflict,
   }) {
-    if (conflictsTriggerUpload && hasConflict) {
+    if (conflictsTriggerUpload && hasConflict && modified) {
       return ExecutionResult.continued(
         UploadJob(
           syncNode: syncNode,
