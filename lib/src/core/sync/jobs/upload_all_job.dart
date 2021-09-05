@@ -1,3 +1,5 @@
+import 'package:meta/meta.dart';
+
 import '../../store/sync_object.dart';
 import '../executable_sync_job.dart';
 import '../expandable_sync_job.dart';
@@ -14,6 +16,7 @@ class UploadAllJob<T extends Object> extends ExpandableSyncJob {
   });
 
   @override
+  @protected
   Stream<ExecutableSyncJob> expandImpl() =>
       Stream.fromFuture(Future.value(syncNode.localStore.listEntries()))
           .expand((entries) => entries.entries)

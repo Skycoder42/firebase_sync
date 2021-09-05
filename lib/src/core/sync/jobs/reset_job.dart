@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:meta/meta.dart';
+
 import '../../crypto/cipher_message.dart';
 import '../executable_sync_job.dart';
 import '../expandable_sync_job.dart';
@@ -18,6 +20,7 @@ class ResetJob<T extends Object> extends ExpandableSyncJob
   });
 
   @override
+  @protected
   Stream<ExecutableSyncJob> expandImpl() => Stream.fromIterable(
         generateJobs(
           data: data,
