@@ -31,11 +31,13 @@ class UploadJobTransformerSink<T extends Object>
       return;
     }
 
-    sink.add(UploadJob(
-      syncNode: syncNode,
-      key: event.key,
-      multipass: false,
-    ));
+    sink.add(
+      UploadJob(
+        syncNode: syncNode,
+        key: event.key,
+        multipass: false,
+      ),
+    );
   }
 
   @override

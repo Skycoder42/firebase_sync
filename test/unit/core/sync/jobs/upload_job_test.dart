@@ -176,12 +176,14 @@ void main() {
 
       test('uploads locally modified data', () async {
         final localData = SyncObject.local(10);
-        final updatedCipher = FakeCipherMessage(Uint8List.fromList(
-          List.generate(
-            SyncObject.remoteTagMin,
-            (index) => index + 3,
+        final updatedCipher = FakeCipherMessage(
+          Uint8List.fromList(
+            List.generate(
+              SyncObject.remoteTagMin,
+              (index) => index + 3,
+            ),
           ),
-        ));
+        );
 
         when(() => mockSyncObjectStore.get(any()))
             .thenAnswer((i) async => localData);
@@ -411,11 +413,13 @@ void main() {
             changeState: 12,
             remoteTag: SyncObject.noRemoteDataTag,
           ),
-          resultMatcher: UpdateAction.update(localData.copyWith(
-            value: 77,
-            changeState: 12,
-            remoteTag: SyncObject.noRemoteDataTag,
-          )),
+          resultMatcher: UpdateAction.update(
+            localData.copyWith(
+              value: 77,
+              changeState: 12,
+              remoteTag: SyncObject.noRemoteDataTag,
+            ),
+          ),
         );
 
         final result = await sut.executeImpl();
@@ -487,11 +491,13 @@ void main() {
             changeState: 0,
             remoteTag: remoteTag,
           ),
-          resultMatcher: UpdateAction.update(localData.copyWith(
-            value: remoteData,
-            changeState: 0,
-            remoteTag: remoteTag,
-          )),
+          resultMatcher: UpdateAction.update(
+            localData.copyWith(
+              value: remoteData,
+              changeState: 0,
+              remoteTag: remoteTag,
+            ),
+          ),
         );
 
         final result = await sut.executeImpl();

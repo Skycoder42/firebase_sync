@@ -41,10 +41,12 @@ class DownloadUpdateJob<T extends Object> extends DownloadJobBase<T> {
         oldRemoteTag = localData.remoteTagOrDefault;
 
         if (localData == null) {
-          return UpdateAction.update(SyncObject.remote(
-            plainData,
-            remoteCipher.remoteTag,
-          ));
+          return UpdateAction.update(
+            SyncObject.remote(
+              plainData,
+              remoteCipher.remoteTag,
+            ),
+          );
         }
 
         if (localData.remoteTag == remoteCipher.remoteTag) {
@@ -52,10 +54,12 @@ class DownloadUpdateJob<T extends Object> extends DownloadJobBase<T> {
         }
 
         if (!localData.locallyModified) {
-          return UpdateAction.update(localData.updateRemote(
-            plainData,
-            remoteCipher.remoteTag,
-          ));
+          return UpdateAction.update(
+            localData.updateRemote(
+              plainData,
+              remoteCipher.remoteTag,
+            ),
+          );
         }
 
         return resolveConflict(

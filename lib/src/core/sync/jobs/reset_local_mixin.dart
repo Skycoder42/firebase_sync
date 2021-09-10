@@ -19,10 +19,12 @@ mixin ResetLocalMixin<T extends Object> on ExpandableSyncJob {
       _removeDeletedEntries(
         data: data,
         conflictsTriggerUpload: conflictsTriggerUpload,
-      ).followedBy(_downloadUpdatedEntries(
-        data: data,
-        conflictsTriggerUpload: conflictsTriggerUpload,
-      ));
+      ).followedBy(
+        _downloadUpdatedEntries(
+          data: data,
+          conflictsTriggerUpload: conflictsTriggerUpload,
+        ),
+      );
 
   Iterable<ExecutableSyncJob> _removeDeletedEntries({
     required Map<String, CipherMessage> data,

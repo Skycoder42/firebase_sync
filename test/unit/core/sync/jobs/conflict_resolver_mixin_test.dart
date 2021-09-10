@@ -94,17 +94,21 @@ void main() {
 
       group('returns', () {
         const remoteData = 10;
-        final remoteTag = Uint8List.fromList(List.generate(
-          SyncObject.remoteTagMin,
-          (index) => index,
-        ));
+        final remoteTag = Uint8List.fromList(
+          List.generate(
+            SyncObject.remoteTagMin,
+            (index) => index,
+          ),
+        );
         final localData = SyncObject(
           value: 20,
           changeState: 10,
-          remoteTag: Uint8List.fromList(List.generate(
-            SyncObject.remoteTagMin,
-            (index) => 255 - index,
-          )),
+          remoteTag: Uint8List.fromList(
+            List.generate(
+              SyncObject.remoteTagMin,
+              (index) => 255 - index,
+            ),
+          ),
         );
 
         UpdateAction<SyncObject<int>> act(

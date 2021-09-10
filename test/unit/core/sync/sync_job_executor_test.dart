@@ -149,11 +149,13 @@ void main() {
 
         expect(
           sut.syncErrors,
-          emits(isA<SyncError>().having(
-            (e) => e.error.toString(),
-            'error',
-            'Exception: error',
-          )),
+          emits(
+            isA<SyncError>().having(
+              (e) => e.error.toString(),
+              'error',
+              'Exception: error',
+            ),
+          ),
         );
 
         final sub = sut.addStream(stream);
@@ -248,7 +250,9 @@ void main() {
         verifyNever(() => job2.executeImpl());
         verifyNever(() => job4.executeImpl());
 
-        streamController3..add(job1)..add(job2);
+        streamController3
+          ..add(job1)
+          ..add(job2);
         expect(streamController3.close(), completes);
 
         await Future<void>.delayed(const Duration(milliseconds: 100));

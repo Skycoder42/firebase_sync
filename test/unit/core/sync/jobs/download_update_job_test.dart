@@ -127,10 +127,12 @@ void main() {
 
       test('uses remote data if no local data present', () async {
         const remoteData = 45;
-        final remoteTag = Uint8List.fromList(List.generate(
-          SyncObject.remoteTagMin,
-          (index) => 30 + index,
-        ));
+        final remoteTag = Uint8List.fromList(
+          List.generate(
+            SyncObject.remoteTagMin,
+            (index) => 30 + index,
+          ),
+        );
         final newData = SyncObject.remote(remoteData, remoteTag);
 
         whenUpdate(
@@ -149,10 +151,12 @@ void main() {
 
       test('does nothing if remote data tags are equal', () async {
         const remoteData = 45;
-        final remoteTag = Uint8List.fromList(List.generate(
-          SyncObject.remoteTagMin,
-          (index) => 30 + index,
-        ));
+        final remoteTag = Uint8List.fromList(
+          List.generate(
+            SyncObject.remoteTagMin,
+            (index) => 30 + index,
+          ),
+        );
         final oldData = SyncObject(
           value: 90,
           changeState: 1,
@@ -175,10 +179,12 @@ void main() {
 
       test('replaces local with remote data if it was not modified', () async {
         const remoteData = 45;
-        final remoteTag = Uint8List.fromList(List.generate(
-          SyncObject.remoteTagMin,
-          (index) => 30 + index,
-        ));
+        final remoteTag = Uint8List.fromList(
+          List.generate(
+            SyncObject.remoteTagMin,
+            (index) => 30 + index,
+          ),
+        );
         final newData = SyncObject.remote(remoteData, remoteTag);
 
         whenUpdate(
