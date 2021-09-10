@@ -97,7 +97,7 @@ void main() {
         key: key,
         remoteCipher: mockCipherMessage,
         syncNode: mockSyncNode,
-        conflictsTriggerUpload: true,
+        conflictsTriggerUpload: true, // TODO test false case
       );
     });
 

@@ -41,7 +41,7 @@ void main() {
     DownloadAllJob<int> createSut([Filter? filter]) => DownloadAllJob<int>(
           syncNode: mockSyncNode,
           filter: filter,
-          conflictsTriggerUpload: false,
+          conflictsTriggerUpload: false, // TODO test true case
         );
 
     group('expandImpl', () {

@@ -1,4 +1,5 @@
 import 'package:firebase_database_rest/firebase_database_rest.dart';
+import 'package:meta/meta.dart';
 
 import '../../crypto/cipher_message.dart';
 import '../../store/sync_object.dart';
@@ -22,6 +23,7 @@ class UploadJob<T extends Object> extends ExecutableSyncJob
   });
 
   @override
+  @protected
   Future<ExecutionResult> executeImpl() async {
     // check if entry needs to be uploaded
     var localEntry = await syncNode.localStore.get(key);

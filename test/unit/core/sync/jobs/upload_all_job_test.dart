@@ -47,7 +47,7 @@ void main() {
 
       sut = UploadAllJob(
         syncNode: mockSyncNode,
-        multipass: true,
+        multipass: true, // TODO test false case
       );
     });
 

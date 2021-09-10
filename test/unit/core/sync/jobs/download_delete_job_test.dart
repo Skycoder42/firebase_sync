@@ -52,7 +52,7 @@ void main() {
       sut = DownloadDeleteJob(
         key: key,
         syncNode: mockSyncNode,
-        conflictsTriggerUpload: true,
+        conflictsTriggerUpload: true, // TODO test false case
       );
     });
 
