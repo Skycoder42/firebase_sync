@@ -17,6 +17,8 @@ import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
 import 'package:tuple/tuple.dart';
 
+import '../../../../test_data.dart';
+
 class MockSyncNode extends Mock implements SyncNode<int> {}
 
 class MockSyncObjectStore extends Mock implements SyncObjectStore<int> {}
@@ -58,8 +60,6 @@ void main() {
     final mockJsonConverter = MockJsonConverter();
     final mockConflictResolver = MockConflictResolver();
     final mockTransaction = MockTransaction();
-
-    late UploadJob<int> sut;
 
     When<Future<CipherMessage>> whenEncrypt() => when(
           () => mockDataEncryptor.encrypt(
@@ -107,7 +107,8 @@ void main() {
       expect(doneCompleter.future, completes);
     }
 
-    void expectContinued(ExecutionResult actual) => actual.maybeWhen(
+    void expectContinued(ExecutionResult actual, dynamic multipass) =>
+        actual.maybeWhen(
           orElse: () =>
               fail('Expected ExecutionResult.continued, but got $actual'),
           continued: (job) => expect(
@@ -115,8 +116,15 @@ void main() {
             isA<UploadJob<int>>()
                 .having((j) => j.key, 'key', key)
                 .having((j) => j.syncNode, 'syncNode', same(mockSyncNode))
-                .having((j) => j.multipass, 'multipass', isTrue),
+                .having((j) => j.multipass, 'multipass', multipass),
           ),
+        );
+
+    // ignore: avoid_positional_boolean_parameters
+    UploadJob<int> createSut([bool multipass = false]) => UploadJob(
+          syncNode: mockSyncNode,
+          key: key,
+          multipass: multipass,
         );
 
     setUp(() {
@@ -149,12 +157,6 @@ void main() {
       when(() => mockTransaction.commitUpdate(any()))
           .thenAnswer((i) async => null);
       when(() => mockTransaction.commitDelete()).thenAnswer((i) async {});
-
-      sut = UploadJob(
-        syncNode: mockSyncNode,
-        key: key,
-        multipass: true, // TODO test false case
-      );
     });
 
     group('executeImpl', () {
@@ -166,7 +168,7 @@ void main() {
           ),
         );
 
-        final result = await sut.executeImpl();
+        final result = await createSut().executeImpl();
 
         expect(result, const ExecutionResult.noop());
 
@@ -204,7 +206,7 @@ void main() {
           ),
         );
 
-        final result = await sut.executeImpl();
+        final result = await createSut().executeImpl();
 
         expect(result, const ExecutionResult.modified());
 
@@ -242,7 +244,7 @@ void main() {
           ),
         );
 
-        final result = await sut.executeImpl();
+        final result = await createSut().executeImpl();
 
         expect(result, const ExecutionResult.modified());
 
@@ -257,76 +259,88 @@ void main() {
         ]);
       });
 
-      test('uploads locally modified data, reschedules if still modified',
-          () async {
-        final oldRemoteTag = Uint8List.fromList(
-          List.filled(SyncObject.remoteTagMin, 9),
-        );
-        final newRemoteTag = Uint8List.fromList(
-          List.filled(SyncObject.remoteTagMin, 10),
-        );
-        final localData = SyncObject(
-          value: 15,
-          changeState: 3,
-          remoteTag: oldRemoteTag,
-        );
-        final remoteCipher = FakeCipherMessage(newRemoteTag);
+      testData<bool>(
+        'uploads locally modified data, reschedules if still modified',
+        const [false, true],
+        (fixture) async {
+          final oldRemoteTag = Uint8List.fromList(
+            List.filled(SyncObject.remoteTagMin, 9),
+          );
+          final newRemoteTag = Uint8List.fromList(
+            List.filled(SyncObject.remoteTagMin, 10),
+          );
+          final localData = SyncObject(
+            value: 15,
+            changeState: 3,
+            remoteTag: oldRemoteTag,
+          );
+          final remoteCipher = FakeCipherMessage(newRemoteTag);
 
-        when(() => mockSyncObjectStore.get(any()))
-            .thenAnswer((i) async => localData);
-        whenTransact(oldRemoteTag);
-        whenEncrypt().thenAnswer((i) async => remoteCipher);
-        whenUpdate(
-          oldData: localData.copyWith(changeState: 10),
-          newData: localData.copyWith(remoteTag: newRemoteTag),
-          resultMatcher: UpdateAction.update(
-            localData.copyWith(
-              changeState: 10,
-              remoteTag: newRemoteTag,
+          when(() => mockSyncObjectStore.get(any()))
+              .thenAnswer((i) async => localData);
+          whenTransact(oldRemoteTag);
+          whenEncrypt().thenAnswer((i) async => remoteCipher);
+          whenUpdate(
+            oldData: localData.copyWith(changeState: 10),
+            newData: localData.copyWith(remoteTag: newRemoteTag),
+            resultMatcher: UpdateAction.update(
+              localData.copyWith(
+                changeState: 10,
+                remoteTag: newRemoteTag,
+              ),
             ),
-          ),
-        );
+          );
 
-        final result = await sut.executeImpl();
+          final result = await createSut(fixture).executeImpl();
 
-        expectContinued(result);
+          if (fixture) {
+            expectContinued(result, isTrue);
+          } else {
+            expect(result, const ExecutionResult.modified());
+          }
 
-        verifyInOrder<dynamic>([
-          () => mockSyncObjectStore.get(key),
-          () => mockCryptoFirebaseStore.transaction(key),
-          () => mockCryptoFirebaseStore.remoteUri(key),
-          () => mockJsonConverter.dataToJson(localData.value!),
-          () => mockDataEncryptor.encrypt(remoteUri: uri, dataJson: jsonData),
-          () => mockTransaction.commitUpdate(remoteCipher),
-          () => mockSyncObjectStore.update(key, any()),
-        ]);
-      });
+          verifyInOrder<dynamic>([
+            () => mockSyncObjectStore.get(key),
+            () => mockCryptoFirebaseStore.transaction(key),
+            () => mockCryptoFirebaseStore.remoteUri(key),
+            () => mockJsonConverter.dataToJson(localData.value!),
+            () => mockDataEncryptor.encrypt(remoteUri: uri, dataJson: jsonData),
+            () => mockTransaction.commitUpdate(remoteCipher),
+            () => mockSyncObjectStore.update(key, any()),
+          ]);
+        },
+      );
 
-      test('reschedules upload if transaction update commit fails', () async {
-        final localData = SyncObject.local(10);
-        final remoteCipher = FakeCipherMessage();
+      testData<bool>(
+        'reschedules upload if transaction update commit fails',
+        const [false, true],
+        (fixture) async {
+          final localData = SyncObject.local(10);
+          final remoteCipher = FakeCipherMessage();
 
-        when(() => mockSyncObjectStore.get(any()))
-            .thenAnswer((i) async => localData);
-        whenTransact();
-        when(() => mockTransaction.commitUpdate(any()))
-            .thenAnswer((i) async => throw const TransactionFailedException());
-        whenEncrypt().thenAnswer((i) async => remoteCipher);
+          when(() => mockSyncObjectStore.get(any()))
+              .thenAnswer((i) async => localData);
+          whenTransact();
+          when(() => mockTransaction.commitUpdate(any())).thenAnswer(
+            (i) async => throw const TransactionFailedException(),
+          );
+          whenEncrypt().thenAnswer((i) async => remoteCipher);
 
-        final result = await sut.executeImpl();
+          final result = await createSut(fixture).executeImpl();
 
-        expectContinued(result);
+          expectContinued(result, fixture);
 
-        verifyInOrder<dynamic>([
-          () => mockSyncObjectStore.get(key),
-          () => mockCryptoFirebaseStore.transaction(key),
-          () => mockCryptoFirebaseStore.remoteUri(key),
-          () => mockJsonConverter.dataToJson(localData.value!),
-          () => mockDataEncryptor.encrypt(remoteUri: uri, dataJson: jsonData),
-          () => mockTransaction.commitUpdate(remoteCipher),
-        ]);
-        verifyNever(() => mockSyncObjectStore.update(any(), any()));
-      });
+          verifyInOrder<dynamic>([
+            () => mockSyncObjectStore.get(key),
+            () => mockCryptoFirebaseStore.transaction(key),
+            () => mockCryptoFirebaseStore.remoteUri(key),
+            () => mockJsonConverter.dataToJson(localData.value!),
+            () => mockDataEncryptor.encrypt(remoteUri: uri, dataJson: jsonData),
+            () => mockTransaction.commitUpdate(remoteCipher),
+          ]);
+          verifyNever(() => mockSyncObjectStore.update(any(), any()));
+        },
+      );
 
       test('uploads locally deleted data', () async {
         final remoteTag = Uint8List.fromList(
@@ -347,7 +361,7 @@ void main() {
           resultMatcher: const UpdateAction.delete(),
         );
 
-        final result = await sut.executeImpl();
+        final result = await createSut().executeImpl();
 
         expect(result, const ExecutionResult.modified());
 
@@ -378,7 +392,7 @@ void main() {
           resultMatcher: const UpdateAction.none(),
         );
 
-        final result = await sut.executeImpl();
+        final result = await createSut().executeImpl();
 
         expect(result, const ExecutionResult.modified());
 
@@ -390,77 +404,90 @@ void main() {
         ]);
       });
 
-      test('uploads locally deleted data, reschedules if modified', () async {
-        final remoteTag = Uint8List.fromList(
-          List.filled(SyncObject.remoteTagMin, 9),
-        );
-        final localData = SyncObject<int>(
-          value: null,
-          changeState: 1,
-          remoteTag: remoteTag,
-        );
+      testData<bool>(
+        'uploads locally deleted data, reschedules if modified',
+        const [false, true],
+        (fixture) async {
+          final remoteTag = Uint8List.fromList(
+            List.filled(SyncObject.remoteTagMin, 9),
+          );
+          final localData = SyncObject<int>(
+            value: null,
+            changeState: 1,
+            remoteTag: remoteTag,
+          );
 
-        when(() => mockSyncObjectStore.get(any()))
-            .thenAnswer((i) async => localData);
-        whenTransact(remoteTag);
-        whenUpdate(
-          oldData: localData.copyWith(
-            value: 77,
-            changeState: 12,
-          ),
-          newData: localData.copyWith(
-            value: 77,
-            changeState: 12,
-            remoteTag: SyncObject.noRemoteDataTag,
-          ),
-          resultMatcher: UpdateAction.update(
-            localData.copyWith(
+          when(() => mockSyncObjectStore.get(any()))
+              .thenAnswer((i) async => localData);
+          whenTransact(remoteTag);
+          whenUpdate(
+            oldData: localData.copyWith(
+              value: 77,
+              changeState: 12,
+            ),
+            newData: localData.copyWith(
               value: 77,
               changeState: 12,
               remoteTag: SyncObject.noRemoteDataTag,
             ),
-          ),
-        );
+            resultMatcher: UpdateAction.update(
+              localData.copyWith(
+                value: 77,
+                changeState: 12,
+                remoteTag: SyncObject.noRemoteDataTag,
+              ),
+            ),
+          );
 
-        final result = await sut.executeImpl();
+          final result = await createSut(fixture).executeImpl();
 
-        expectContinued(result);
+          if (fixture) {
+            expectContinued(result, isTrue);
+          } else {
+            expect(result, const ExecutionResult.modified());
+          }
 
-        verifyInOrder<dynamic>([
-          () => mockSyncObjectStore.get(key),
-          () => mockCryptoFirebaseStore.transaction(key),
-          () => mockTransaction.commitDelete(),
-          () => mockSyncObjectStore.update(key, any()),
-        ]);
-      });
+          verifyInOrder<dynamic>([
+            () => mockSyncObjectStore.get(key),
+            () => mockCryptoFirebaseStore.transaction(key),
+            () => mockTransaction.commitDelete(),
+            () => mockSyncObjectStore.update(key, any()),
+          ]);
+        },
+      );
 
-      test('reschedules upload if transaction delete commit fails', () async {
-        final remoteTag = Uint8List.fromList(
-          List.filled(SyncObject.remoteTagMin, 9),
-        );
-        final localData = SyncObject<int>(
-          value: null,
-          changeState: 1,
-          remoteTag: remoteTag,
-        );
+      testData<bool>(
+        'reschedules upload if transaction delete commit fails',
+        const [false, true],
+        (fixture) async {
+          final remoteTag = Uint8List.fromList(
+            List.filled(SyncObject.remoteTagMin, 9),
+          );
+          final localData = SyncObject<int>(
+            value: null,
+            changeState: 1,
+            remoteTag: remoteTag,
+          );
 
-        when(() => mockSyncObjectStore.get(any()))
-            .thenAnswer((i) async => localData);
-        whenTransact(remoteTag);
-        when(() => mockTransaction.commitDelete())
-            .thenAnswer((i) async => throw const TransactionFailedException());
+          when(() => mockSyncObjectStore.get(any()))
+              .thenAnswer((i) async => localData);
+          whenTransact(remoteTag);
+          when(() => mockTransaction.commitDelete()).thenAnswer(
+            (i) async => throw const TransactionFailedException(),
+          );
 
-        final result = await sut.executeImpl();
+          final result = await createSut(fixture).executeImpl();
 
-        expectContinued(result);
+          expectContinued(result, fixture);
 
-        verifyInOrder<dynamic>([
-          () => mockSyncObjectStore.get(key),
-          () => mockCryptoFirebaseStore.transaction(key),
-          () => mockTransaction.commitDelete(),
-        ]);
-        verifyNever(() => mockSyncObjectStore.update(any(), any()));
-      });
+          verifyInOrder<dynamic>([
+            () => mockSyncObjectStore.get(key),
+            () => mockCryptoFirebaseStore.transaction(key),
+            () => mockTransaction.commitDelete(),
+          ]);
+          verifyNever(() => mockSyncObjectStore.update(any(), any()));
+        },
+      );
     });
 
     group('resolves conflicts', () {
@@ -500,7 +527,7 @@ void main() {
           ),
         );
 
-        final result = await sut.executeImpl();
+        final result = await createSut().executeImpl();
         expect(result, const ExecutionResult.modified());
 
         verifyInOrder<dynamic>([
@@ -554,7 +581,7 @@ void main() {
         ]);
         whenEncrypt().thenAnswer((i) async => resolvedCipherMessage);
 
-        final result = await sut.executeImpl();
+        final result = await createSut().executeImpl();
         expect(result, const ExecutionResult.modified());
 
         verifyInOrder<dynamic>([

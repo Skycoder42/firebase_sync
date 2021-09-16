@@ -12,6 +12,8 @@ import 'package:firebase_sync/src/core/sync/sync_node.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
 
+import '../../../../test_data.dart';
+
 class MockSyncNode extends Mock implements SyncNode<int> {}
 
 class MockSyncObjectStore extends Mock implements SyncObjectStore<int> {}
@@ -52,7 +54,7 @@ void main() {
       sut = DownloadDeleteJob(
         key: key,
         syncNode: mockSyncNode,
-        conflictsTriggerUpload: true, // TODO test false case
+        conflictsTriggerUpload: true,
       );
     });
 
@@ -100,54 +102,68 @@ void main() {
         },
       );
 
-      test('resolves conflicts hand triggers upload if required', () async {
-        final newData = SyncObject(
-          value: 5,
-          changeState: 6,
-          remoteTag: SyncObject.noRemoteDataTag,
-        );
+      testData<bool>(
+        'resolves conflicts hand triggers upload if required',
+        const [false, true],
+        (fixture) async {
+          final newData = SyncObject(
+            value: 5,
+            changeState: 6,
+            remoteTag: SyncObject.noRemoteDataTag,
+          );
 
-        when(
-          () => mockConflictResolver.resolve(
-            any(),
-            local: any(named: 'local'),
-            remote: any(named: 'remote'),
-          ),
-        ).thenReturn(const ConflictResolution.update(5));
+          when(
+            () => mockConflictResolver.resolve(
+              any(),
+              local: any(named: 'local'),
+              remote: any(named: 'remote'),
+            ),
+          ).thenReturn(const ConflictResolution.update(5));
 
-        whenUpdate(
-          oldData: SyncObject(
-            value: 10,
-            changeState: 5,
-            remoteTag: Uint8List(SyncObject.remoteTagMin),
-          ),
-          newData: newData,
-          resultMatcher: UpdateAction.update(newData),
-        );
+          whenUpdate(
+            oldData: SyncObject(
+              value: 10,
+              changeState: 5,
+              remoteTag: Uint8List(SyncObject.remoteTagMin),
+            ),
+            newData: newData,
+            resultMatcher: UpdateAction.update(newData),
+          );
 
-        final result = await sut.executeImpl();
+          sut = DownloadDeleteJob(
+            key: key,
+            syncNode: mockSyncNode,
+            conflictsTriggerUpload: fixture,
+          );
+          final result = await sut.executeImpl();
 
-        result.maybeWhen(
-          orElse: () =>
-              fail('Expected ExecutionResult.continued, but got $result'),
-          continued: (job) => expect(
-            job,
-            isA<UploadJob<int>>()
-                .having((j) => j.key, 'key', key)
-                .having((j) => j.syncNode, 'syncNode', same(mockSyncNode))
-                .having((j) => j.multipass, 'multipass', isFalse),
-          ),
-        );
+          if (fixture) {
+            result.maybeWhen(
+              orElse: () =>
+                  fail('Expected ExecutionResult.continued, but got $result'),
+              continued: (job) => expect(
+                job,
+                isA<UploadJob<int>>()
+                    .having((j) => j.key, 'key', key)
+                    .having((j) => j.syncNode, 'syncNode', same(mockSyncNode))
+                    .having((j) => j.multipass, 'multipass', isFalse),
+              ),
+            );
+          } else {
+            expect(result, const ExecutionResult.modified());
+          }
 
-        verify(() => mockSyncObjectStore.update(key, any()));
-        verify(
-          () => mockConflictResolver.resolve(
-            key,
-            local: 10,
-            remote: null,
-          ),
-        );
-      });
+          verify(() => mockSyncObjectStore.update(key, any()));
+          verify(
+            () => mockConflictResolver.resolve(
+              key,
+              local: 10,
+              remote: null,
+            ),
+          );
+        },
+        fixtureToString: (fixture) => '[conflictsTriggerUpload: $fixture]',
+      );
     });
   });
 }

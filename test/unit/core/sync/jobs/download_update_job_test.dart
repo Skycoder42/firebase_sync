@@ -16,6 +16,8 @@ import 'package:firebase_sync/src/core/sync/sync_node.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
 
+import '../../../../test_data.dart';
+
 class MockSyncNode extends Mock implements SyncNode<int> {}
 
 class MockCryptoFirebaseStore extends Mock implements CryptoFirebaseStore {}
@@ -97,7 +99,7 @@ void main() {
         key: key,
         remoteCipher: mockCipherMessage,
         syncNode: mockSyncNode,
-        conflictsTriggerUpload: true, // TODO test false case
+        conflictsTriggerUpload: true,
       );
     });
 
@@ -205,59 +207,73 @@ void main() {
         verify(() => mockSyncObjectStore.update(key, any()));
       });
 
-      test('resolves conflicts hand triggers upload if required', () async {
-        final remoteTag = Uint8List.fromList(
-          List.filled(SyncObject.remoteTagMin, 10),
-        );
-        final newData = SyncObject<int>(
-          value: null,
-          changeState: 6,
-          remoteTag: remoteTag,
-        );
+      testData<bool>(
+        'resolves conflicts hand triggers upload if required',
+        const [false, true],
+        (fixture) async {
+          final remoteTag = Uint8List.fromList(
+            List.filled(SyncObject.remoteTagMin, 10),
+          );
+          final newData = SyncObject<int>(
+            value: null,
+            changeState: 6,
+            remoteTag: remoteTag,
+          );
 
-        when(
-          () => mockConflictResolver.resolve(
-            any(),
-            local: any(named: 'local'),
-            remote: any(named: 'remote'),
-          ),
-        ).thenReturn(const ConflictResolution.delete());
+          when(
+            () => mockConflictResolver.resolve(
+              any(),
+              local: any(named: 'local'),
+              remote: any(named: 'remote'),
+            ),
+          ).thenReturn(const ConflictResolution.delete());
 
-        whenUpdate(
-          remoteData: 42,
-          remoteTag: remoteTag,
-          oldData: SyncObject(
-            value: 10,
-            changeState: 5,
-            remoteTag: Uint8List(SyncObject.remoteTagMin),
-          ),
-          newData: newData,
-          resultMatcher: UpdateAction.update(newData),
-        );
+          whenUpdate(
+            remoteData: 42,
+            remoteTag: remoteTag,
+            oldData: SyncObject(
+              value: 10,
+              changeState: 5,
+              remoteTag: Uint8List(SyncObject.remoteTagMin),
+            ),
+            newData: newData,
+            resultMatcher: UpdateAction.update(newData),
+          );
 
-        final result = await sut.executeImpl();
+          sut = DownloadUpdateJob(
+            key: key,
+            remoteCipher: mockCipherMessage,
+            syncNode: mockSyncNode,
+            conflictsTriggerUpload: fixture,
+          );
+          final result = await sut.executeImpl();
 
-        result.maybeWhen(
-          orElse: () =>
-              fail('Expected ExecutionResult.continued, but got $result'),
-          continued: (job) => expect(
-            job,
-            isA<UploadJob<int>>()
-                .having((j) => j.key, 'key', key)
-                .having((j) => j.syncNode, 'syncNode', same(mockSyncNode))
-                .having((j) => j.multipass, 'multipass', isFalse),
-          ),
-        );
+          if (fixture) {
+            result.maybeWhen(
+              orElse: () =>
+                  fail('Expected ExecutionResult.continued, but got $result'),
+              continued: (job) => expect(
+                job,
+                isA<UploadJob<int>>()
+                    .having((j) => j.key, 'key', key)
+                    .having((j) => j.syncNode, 'syncNode', same(mockSyncNode))
+                    .having((j) => j.multipass, 'multipass', isFalse),
+              ),
+            );
+          } else {
+            expect(result, const ExecutionResult.modified());
+          }
 
-        verify(() => mockSyncObjectStore.update(key, any()));
-        verify(
-          () => mockConflictResolver.resolve(
-            key,
-            local: 10,
-            remote: 42,
-          ),
-        );
-      });
+          verify(() => mockSyncObjectStore.update(key, any()));
+          verify(
+            () => mockConflictResolver.resolve(
+              key,
+              local: 10,
+              remote: 42,
+            ),
+          );
+        },
+      );
     });
   });
 }

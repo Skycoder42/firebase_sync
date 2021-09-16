@@ -9,6 +9,7 @@ import 'package:firebase_sync/src/core/sync/sync_node.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
 
+import '../../../../test_data.dart';
 import 'download_all_job_test.dart';
 
 class MockSyncJob extends Mock implements SyncNode<int> {}
@@ -20,9 +21,7 @@ void main() {
     final mockSyncNode = MockSyncNode();
     final mockSyncObjectStore = MockSyncObjectStore();
 
-    late UploadAllJob<int> sut;
-
-    Matcher isUploadJob(dynamic key) => isA<UploadJob<int>>()
+    Matcher isUploadJob(dynamic key, dynamic multipass) => isA<UploadJob<int>>()
         .having(
           (j) => j.syncNode,
           'syncNode',
@@ -36,7 +35,7 @@ void main() {
         .having(
           (j) => j.multipass,
           'multipass',
-          isTrue,
+          multipass,
         );
 
     setUp(() {
@@ -44,38 +43,42 @@ void main() {
       reset(mockSyncObjectStore);
 
       when(() => mockSyncNode.localStore).thenReturn(mockSyncObjectStore);
-
-      sut = UploadAllJob(
-        syncNode: mockSyncNode,
-        multipass: true, // TODO test false case
-      );
     });
 
     group('expandImpl', () {
-      test('generates uploadJobs for all modified entries', () {
-        when(() => mockSyncObjectStore.listEntries()).thenAnswer(
-          (i) async => {
-            'a': SyncObject.deleted(),
-            'b': SyncObject.local(42),
-            'c': SyncObject.remote(10, Uint8List(SyncObject.remoteTagMin)),
-            'd': SyncObject(
-              value: null,
-              changeState: 5,
-              remoteTag: SyncObject.noRemoteDataTag,
-            ),
-          },
-        );
+      testData<bool>(
+        'generates uploadJobs for all modified entries',
+        const [false, true],
+        (fixture) {
+          when(() => mockSyncObjectStore.listEntries()).thenAnswer(
+            (i) async => {
+              'a': SyncObject.deleted(),
+              'b': SyncObject.local(42),
+              'c': SyncObject.remote(10, Uint8List(SyncObject.remoteTagMin)),
+              'd': SyncObject(
+                value: null,
+                changeState: 5,
+                remoteTag: SyncObject.noRemoteDataTag,
+              ),
+            },
+          );
 
-        final stream = sut.expandImpl();
+          final sut = UploadAllJob(
+            syncNode: mockSyncNode,
+            multipass: fixture,
+          );
+          final stream = sut.expandImpl();
 
-        expect(
-          stream,
-          emitsInOrder(<dynamic>[
-            isUploadJob('b'),
-            isUploadJob('d'),
-          ]),
-        );
-      });
+          expect(
+            stream,
+            emitsInOrder(<dynamic>[
+              isUploadJob('b', fixture),
+              isUploadJob('d', fixture),
+            ]),
+          );
+        },
+        fixtureToString: (fixture) => '[conflictsTriggerUpload: $fixture]',
+      );
     });
   });
 }

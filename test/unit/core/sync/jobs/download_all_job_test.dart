@@ -8,6 +8,7 @@ import 'package:firebase_sync/src/core/sync/sync_node.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:test/test.dart';
 
+import '../../../../test_data.dart';
 import 'matchers.dart';
 
 class MockSyncNode extends Mock implements SyncNode<int> {}
@@ -38,10 +39,14 @@ void main() {
       when(() => mockSyncObjectStore.rawKeys).thenReturn(const []);
     });
 
-    DownloadAllJob<int> createSut([Filter? filter]) => DownloadAllJob<int>(
+    DownloadAllJob<int> createSut({
+      Filter? filter,
+      bool conflictsTriggerUpload = false,
+    }) =>
+        DownloadAllJob<int>(
           syncNode: mockSyncNode,
           filter: filter,
-          conflictsTriggerUpload: false, // TODO test true case
+          conflictsTriggerUpload: conflictsTriggerUpload,
         );
 
     group('expandImpl', () {
@@ -59,33 +64,39 @@ void main() {
         when(() => mockCryptoFirebaseStore.query(any()))
             .thenAnswer((i) async => const {});
 
-        await expectLater(createSut(filter).expandImpl(), emitsDone);
+        await expectLater(createSut(filter: filter).expandImpl(), emitsDone);
 
         verify(() => mockCryptoFirebaseStore.query(filter));
       });
 
-      test('returns list of download and update jobs', () {
-        final newData = {
-          'b': FakeCipherMessage(),
-          'c': FakeCipherMessage(),
-        };
+      testData<bool>(
+        'returns list of download and update jobs',
+        const [false, true],
+        (fixture) {
+          final newData = {
+            'b': FakeCipherMessage(),
+            'c': FakeCipherMessage(),
+          };
 
-        when(() => mockSyncObjectStore.rawKeys).thenReturn(['a', 'b']);
-        when(() => mockCryptoFirebaseStore.all())
-            .thenAnswer((i) async => newData);
+          when(() => mockSyncObjectStore.rawKeys).thenReturn(['a', 'b']);
+          when(() => mockCryptoFirebaseStore.all())
+              .thenAnswer((i) async => newData);
 
-        final stream = createSut().expandImpl();
+          final stream =
+              createSut(conflictsTriggerUpload: fixture).expandImpl();
 
-        expect(
-          stream,
-          emitsInOrder(<dynamic>[
-            isDeleteJob('a', mockSyncNode, isFalse),
-            isUpdateJob('b', same(newData['b']), mockSyncNode, isFalse),
-            isUpdateJob('c', same(newData['c']), mockSyncNode, isFalse),
-            emitsDone,
-          ]),
-        );
-      });
+          expect(
+            stream,
+            emitsInOrder(<dynamic>[
+              isDeleteJob('a', mockSyncNode, fixture),
+              isUpdateJob('b', same(newData['b']), mockSyncNode, fixture),
+              isUpdateJob('c', same(newData['c']), mockSyncNode, fixture),
+              emitsDone,
+            ]),
+          );
+        },
+        fixtureToString: (fixture) => '[conflictsTriggerUpload: $fixture]',
+      );
     });
   });
 }

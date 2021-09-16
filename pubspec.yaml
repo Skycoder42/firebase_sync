@@ -19,13 +19,13 @@ dependencies:
   uuid: ^3.0.4
 
 dev_dependencies:
-  args: ^2.2.0
+  args: ^2.3.0
   build_runner: ^2.1.2
   coverage: ^1.0.3
   dart_pre_commit: ^2.3.2
   freezed: ^0.14.5
   hive_generator: ^1.1.1
-  json_serializable: ^5.0.0
+  json_serializable: ^5.0.1
   lint: ^1.7.2
   mocktail: ^0.1.4
   test: ^1.17.12

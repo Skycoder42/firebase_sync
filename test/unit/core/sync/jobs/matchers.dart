@@ -5,9 +5,9 @@ import 'package:test/test.dart';
 
 Matcher isDeleteJob<T extends Object>(
   String key,
-  SyncNode<T> syncNode, [
+  SyncNode<T> syncNode,
   dynamic conflictsTriggerUploadMatcher,
-]) =>
+) =>
     isA<DownloadDeleteJob<T>>()
         .having((j) => j.key, 'key', key)
         .having((j) => j.syncNode, 'syncNode', same(syncNode))
@@ -20,9 +20,9 @@ Matcher isDeleteJob<T extends Object>(
 Matcher isUpdateJob<T extends Object>(
   String key,
   dynamic dataMatcher,
-  SyncNode<T> syncNode, [
+  SyncNode<T> syncNode,
   dynamic conflictsTriggerUploadMatcher,
-]) =>
+) =>
     isA<DownloadUpdateJob<T>>()
         .having((j) => j.key, 'key', key)
         .having((j) => j.remoteCipher, 'remoteCipher', dataMatcher)

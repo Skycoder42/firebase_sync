@@ -73,12 +73,24 @@ void main() {
             .toList();
 
         expect(result, hasLength(6));
-        expect(result[0], isDeleteJob('a', mockSyncNode));
-        expect(result[1], isDeleteJob('d', mockSyncNode));
-        expect(result[2], isUpdateJob('b', same(newData['b']), mockSyncNode));
-        expect(result[3], isUpdateJob('c', same(newData['c']), mockSyncNode));
-        expect(result[4], isUpdateJob('e', same(newData['e']), mockSyncNode));
-        expect(result[5], isUpdateJob('f', same(newData['f']), mockSyncNode));
+        expect(result[0], isDeleteJob('a', mockSyncNode, isTrue));
+        expect(result[1], isDeleteJob('d', mockSyncNode, isTrue));
+        expect(
+          result[2],
+          isUpdateJob('b', same(newData['b']), mockSyncNode, isTrue),
+        );
+        expect(
+          result[3],
+          isUpdateJob('c', same(newData['c']), mockSyncNode, isTrue),
+        );
+        expect(
+          result[4],
+          isUpdateJob('e', same(newData['e']), mockSyncNode, isTrue),
+        );
+        expect(
+          result[5],
+          isUpdateJob('f', same(newData['f']), mockSyncNode, isTrue),
+        );
       });
     });
   });
