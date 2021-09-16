@@ -34,8 +34,8 @@ class DownloadJobTransformerSink<T extends Object>
       reset: _reset,
       put: _put,
       delete: _delete,
-      patch: (_, __) {},
-      invalidPath: (_) {},
+      patch: (_, __) {}, // TODO ok like that?
+      invalidPath: (_) {}, // TODO ok like that?
     );
   }
 
@@ -85,7 +85,8 @@ class DownloadJobTransformer<T extends Object>
   const DownloadJobTransformer(this.syncNode);
 
   @override
-  Stream<SyncJob> bind(Stream stream) => Stream.eventTransformed(
+  Stream<SyncJob> bind(Stream<StoreEvent<CipherMessage>> stream) =>
+      Stream.eventTransformed(
         stream,
         (sink) => DownloadJobTransformerSink(
           syncNode: syncNode,
