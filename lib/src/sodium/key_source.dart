@@ -30,29 +30,27 @@ abstract class PersistentKeySource implements KeySource {
   @override
   @nonVirtual
   Future<SecureKey> obtainMasterKey(KeyType keyType) async {
-    if (await hasPersistentKey(keyType)) {
-      return restoreKey(keyType);
+    final restoredKey = await restoreKey(keyType);
+    if (restoredKey != null) {
+      return restoredKey;
     } else {
-      final key = await generateKey(keyType);
+      final generatedKey = await generateKey(keyType);
       try {
-        await persistKey(keyType, key);
-        return key;
+        await persistKey(keyType, generatedKey);
+        return generatedKey;
       } catch (e) {
-        key.dispose();
+        generatedKey.dispose();
         rethrow;
       }
     }
   }
 
   @protected
-  Future<bool> hasPersistentKey(KeyType keyType);
-
-  @protected
-  Future<void> persistKey(KeyType keyType, SecureKey key);
-
-  @protected
-  Future<SecureKey> restoreKey(KeyType keyType);
+  Future<SecureKey?> restoreKey(KeyType keyType);
 
   @protected
   Future<SecureKey> generateKey(KeyType keyType);
+
+  @protected
+  Future<void> persistKey(KeyType keyType, SecureKey key);
 }

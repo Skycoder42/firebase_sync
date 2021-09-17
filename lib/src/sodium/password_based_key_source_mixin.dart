@@ -6,7 +6,8 @@ import 'package:sodium/sodium.dart';
 
 import 'key_source.dart';
 
-part 'password_based_key_source.freezed.dart';
+part 'password_based_key_source_mixin.freezed.dart';
+part 'password_based_key_source_mixin.g.dart';
 
 @freezed
 class MasterKeyComponents with _$MasterKeyComponents {
@@ -15,6 +16,9 @@ class MasterKeyComponents with _$MasterKeyComponents {
     int? opsLimit,
     int? memLimit,
   }) = _MasterKeyComponents;
+
+  factory MasterKeyComponents.fromJson(Map<String, dynamic> json) =>
+      _$MasterKeyComponentsFromJson(json);
 }
 
 @freezed
@@ -23,9 +27,12 @@ class MasterKeyRequest with _$MasterKeyRequest {
     required MasterKeyComponents components,
     required RemoteKeyType keyType,
   }) = _MasterKeyRequest;
+
+  factory MasterKeyRequest.fromJson(Map<String, dynamic> json) =>
+      _$MasterKeyRequestFromJson(json);
 }
 
-abstract class PasswordBasedKeySource extends PersistentKeySource {
+mixin PasswordBasedKeySourceMixin implements PersistentKeySource {
   static SecureKey computeMasterKey(
     Sodium sodium,
     MasterKeyRequest masterKeyRequest,
@@ -43,9 +50,8 @@ abstract class PasswordBasedKeySource extends PersistentKeySource {
             sodium.crypto.pwhash.memLimitSensitive,
       );
 
-  final Sodium sodium;
-
-  PasswordBasedKeySource(this.sodium);
+  @protected
+  Sodium get sodium;
 
   @override
   @nonVirtual
