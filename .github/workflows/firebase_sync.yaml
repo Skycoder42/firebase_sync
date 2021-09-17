@@ -48,7 +48,7 @@ jobs:
         with:
           path: coverage/lcov.info
           min_coverage: 95
-          exclude: |
+          exclude: >-
             **/*.freezed.dart
             **/*.g.dart
       - run: dart run dart_test_tools:publish --dry-run
