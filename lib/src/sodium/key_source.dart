@@ -5,8 +5,11 @@ import 'package:sodium/sodium.dart';
 part 'key_source.freezed.dart';
 part 'key_source.g.dart';
 
-@freezed
+@Freezed(unionKey: KeyType.typeKey)
 class KeyType with _$KeyType {
+  static const typeKey = 'keyType';
+  static const bytesKey = 'bytes';
+
   const factory KeyType.local({
     required int bytes,
   }) = LocalKeyType;

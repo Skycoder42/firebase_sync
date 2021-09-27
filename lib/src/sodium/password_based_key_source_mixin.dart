@@ -23,7 +23,8 @@ class MasterKeyComponents with _$MasterKeyComponents {
 
 @freezed
 class MasterKeyRequest with _$MasterKeyRequest {
-  const factory MasterKeyRequest._({
+  @visibleForTesting
+  const factory MasterKeyRequest.internal({
     required MasterKeyComponents components,
     required RemoteKeyType keyType,
   }) = _MasterKeyRequest;
@@ -32,12 +33,12 @@ class MasterKeyRequest with _$MasterKeyRequest {
       _$MasterKeyRequestFromJson(json);
 }
 
-mixin PasswordBasedKeySourceMixin implements PersistentKeySource {
+mixin PasswordBasedKeySourceMixin on PersistentKeySource {
   static SecureKey computeMasterKey(
     Sodium sodium,
     MasterKeyRequest masterKeyRequest,
   ) =>
-      sodium.crypto.pwhash.call(
+      sodium.crypto.pwhash(
         outLen: masterKeyRequest.keyType.bytes,
         password: masterKeyRequest.components.password.toCharArray(),
         salt: sodium.crypto.genericHash(
@@ -74,7 +75,7 @@ mixin PasswordBasedKeySourceMixin implements PersistentKeySource {
   Future<SecureKey> _generateRemote(RemoteKeyType remoteKeyType) async {
     final components = await obtainMasterKeyComponents();
     return derieveKey(
-      MasterKeyRequest._(
+      MasterKeyRequest.internal(
         components: components,
         keyType: remoteKeyType,
       ),
@@ -82,6 +83,16 @@ mixin PasswordBasedKeySourceMixin implements PersistentKeySource {
   }
 }
 
-extension _KeyTypeSaltX on KeyType {
-  Uint8List toJsonBytes() => json.encode(toJson()).toCharArray().unsignedView();
+extension _KeyTypeSaltX on RemoteKeyType {
+  static const remoteKeys = [KeyType.typeKey, KeyType.bytesKey];
+
+  Uint8List toJsonBytes() => json
+      .encode(
+        toJson()
+          ..removeWhere(
+            (key, dynamic _value) => remoteKeys.contains(key),
+          ),
+      )
+      .toCharArray()
+      .unsignedView();
 }
