@@ -14,7 +14,7 @@ import '../core/sync/sync_mode.dart';
 import '../sodium/key_source.dart';
 import '../sodium/sodium_data_encryptor.dart';
 import '../sodium/sodium_key_manager.dart';
-import '../sodium/uuid_extension.dart';
+import '../sodium/sodium_uuid_x.dart';
 import 'crypto/sodium_hive_cipher.dart';
 import 'hive_offline_store.dart';
 import 'hive_sync_object_store.dart';

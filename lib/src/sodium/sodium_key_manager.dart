@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:clock/clock.dart';
 import 'package:sodium/sodium.dart';
 
 import 'key_source.dart';
@@ -14,8 +15,8 @@ import 'key_source.dart';
 ///       \-remoteKey<m,n:storeName> (cache+)
 /// ```
 class SodiumKeyManager {
-  static const _localMasterKeyContext = 'fbslocal';
-  static const _remoteMasterKeyContext = 'fbs_sync';
+  static const _localKeyContext = 'fbslocal';
+  static const _remoteKeyContext = 'fbs_sync';
   static const _remoteRotationKeyContext = 'fbss_rot';
 
   static const _daysPerMonth = 30;
@@ -24,6 +25,7 @@ class SodiumKeyManager {
 
   final Sodium sodium;
   final KeySource keySource;
+  final Clock clock;
   final String database;
   final String? localId;
 
@@ -40,6 +42,7 @@ class SodiumKeyManager {
     required this.database,
     required this.localId,
     this.lockTimeout = defaultLockTimeout,
+    this.clock = const Clock(),
   });
 
   void dispose() => _clearKeys();
@@ -50,12 +53,12 @@ class SodiumKeyManager {
   }) async =>
       sodium.crypto.kdf.deriveFromKey(
         masterKey: await _obtainLocalMasterKey(),
-        context: _localMasterKeyContext,
+        context: _localKeyContext,
         subkeyId: storeId,
         subkeyLen: keyBytes,
       );
 
-  int get currentRemoteKeyId => _keyIdForDate(DateTime.now().toUtc());
+  int get currentRemoteKeyId => _keyIdForDate(clock.now());
 
   Future<SecureKey> remoteEncryptionKey({
     required int keyId,
@@ -64,7 +67,7 @@ class SodiumKeyManager {
   }) async =>
       sodium.crypto.kdf.deriveFromKey(
         masterKey: await _obtainRemoteRotationKey(keyId),
-        context: _remoteRotationKeyContext,
+        context: _remoteKeyContext,
         subkeyId: storeId,
         subkeyLen: keyBytes,
       );
@@ -94,7 +97,7 @@ class SodiumKeyManager {
   Future<SecureKey> _obtainRemoteRotationKey(int keyId) async {
     _cachedRemoteRotationKeys[keyId] ??= sodium.crypto.kdf.deriveFromKey(
       masterKey: await _obtainRemoteMasterKey(),
-      context: _remoteMasterKeyContext,
+      context: _remoteRotationKeyContext,
       subkeyId: keyId,
       subkeyLen: sodium.crypto.kdf.keyBytes,
     );
