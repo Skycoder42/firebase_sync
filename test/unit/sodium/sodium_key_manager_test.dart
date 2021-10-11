@@ -67,11 +67,11 @@ void main() {
     testData<Tuple2<DateTime, int>>(
       'currentRemoteKeyId returns correct key id by date',
       [
-        Tuple2(DateTime(2021, 9, 30), 629),
+        Tuple2(DateTime.utc(2021, 9, 29), 629),
         // ignore: avoid_redundant_argument_values
-        Tuple2(DateTime(2021, 10, 1), 630),
-        Tuple2(DateTime(2021, 10, 30), 630),
-        Tuple2(DateTime(2021, 10, 31), 631),
+        Tuple2(DateTime.utc(2021, 9, 30), 630),
+        Tuple2(DateTime.utc(2021, 10, 29), 630),
+        Tuple2(DateTime.utc(2021, 10, 30), 631),
       ],
       (fixture) {
         sut = SodiumKeyManager(
@@ -82,17 +82,6 @@ void main() {
           lockTimeout: lockTimeout,
           clock: Clock.fixed(fixture.item1),
         );
-
-        // ignore: avoid_print
-        print('fixture: $fixture');
-        // ignore: avoid_print
-        print('timepoint: ${fixture.item1.millisecondsSinceEpoch}');
-        // ignore: avoid_print
-        print('clock-time: ${sut.clock.now()}');
-        // ignore: avoid_print
-        print('clock-timepoint: ${sut.clock.now().millisecondsSinceEpoch}');
-        // ignore: avoid_print
-        print('currentRemoteKeyId: ${sut.currentRemoteKeyId}');
 
         expect(sut.currentRemoteKeyId, fixture.item2);
       },
