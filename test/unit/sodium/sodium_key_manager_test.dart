@@ -83,6 +83,12 @@ void main() {
           clock: Clock.fixed(fixture.item1),
         );
 
+        print('fixture: $fixture');
+        print('timepoint: ${fixture.item1.millisecondsSinceEpoch}');
+        print('clock-time: ${sut.clock.now()}');
+        print('clock-timepoint: ${sut.clock.now().millisecondsSinceEpoch}');
+        print('currentRemoteKeyId: ${sut.currentRemoteKeyId}');
+
         expect(sut.currentRemoteKeyId, fixture.item2);
       },
     );
