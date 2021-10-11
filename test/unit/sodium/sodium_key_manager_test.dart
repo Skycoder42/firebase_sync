@@ -83,10 +83,15 @@ void main() {
           clock: Clock.fixed(fixture.item1),
         );
 
+        // ignore: avoid_print
         print('fixture: $fixture');
+        // ignore: avoid_print
         print('timepoint: ${fixture.item1.millisecondsSinceEpoch}');
+        // ignore: avoid_print
         print('clock-time: ${sut.clock.now()}');
+        // ignore: avoid_print
         print('clock-timepoint: ${sut.clock.now().millisecondsSinceEpoch}');
+        // ignore: avoid_print
         print('currentRemoteKeyId: ${sut.currentRemoteKeyId}');
 
         expect(sut.currentRemoteKeyId, fixture.item2);
