@@ -28,7 +28,7 @@ class FakeSecureKey extends Fake implements SecureKey {
 void main() {
   setUpAll(() {
     registerFallbackValue(Uint8List(0));
-    registerFallbackValue<SecureKey>(FakeSecureKey(Uint8List(0)));
+    registerFallbackValue(FakeSecureKey(Uint8List(0)));
   });
 
   group('SodiumHiveCipher', () {

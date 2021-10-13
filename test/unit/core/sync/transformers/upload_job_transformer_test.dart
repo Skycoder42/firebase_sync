@@ -24,7 +24,7 @@ class FakeSyncObject extends Fake implements SyncObject<int> {
 
 void main() {
   setUpAll(() {
-    registerFallbackValue<SyncJob>(FakeSyncJob());
+    registerFallbackValue(FakeSyncJob());
   });
 
   group('UploadJobTransformerSink', () {

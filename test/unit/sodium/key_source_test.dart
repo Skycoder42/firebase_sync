@@ -28,7 +28,7 @@ class SutPersistentKeySource extends PersistentKeySource {
 void main() {
   setUpAll(() {
     registerFallbackValue(const KeyType.local(bytes: 0));
-    registerFallbackValue<SecureKey>(MockSecureKey());
+    registerFallbackValue(MockSecureKey());
   });
 
   group('PersistentKeySource', () {

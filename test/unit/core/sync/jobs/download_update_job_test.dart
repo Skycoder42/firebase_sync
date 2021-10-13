@@ -39,7 +39,7 @@ class MockCipherMessage extends Mock implements CipherMessage {}
 void main() {
   setUpAll(() {
     registerFallbackValue(Uri());
-    registerFallbackValue<CipherMessage>(MockCipherMessage());
+    registerFallbackValue(MockCipherMessage());
   });
 
   group('DownloadUpdateJob', () {

@@ -21,7 +21,7 @@ class MockSecureKey extends Mock implements SecureKey {}
 
 void main() {
   setUpAll(() {
-    registerFallbackValue<SecureKey>(MockSecureKey());
+    registerFallbackValue(MockSecureKey());
     registerFallbackValue(const KeyType.local(bytes: 0));
   });
 

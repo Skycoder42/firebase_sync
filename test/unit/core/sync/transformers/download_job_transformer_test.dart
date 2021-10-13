@@ -29,7 +29,7 @@ void main() {
     late DownloadJobTransformerSink<int> sut;
 
     setUpAll(() {
-      registerFallbackValue<SyncJob>(FakeSyncJob());
+      registerFallbackValue(FakeSyncJob());
     });
 
     setUp(() {
