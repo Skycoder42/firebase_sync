@@ -27,10 +27,7 @@ class SodiumHiveCipher implements HiveCipher {
       );
 
   @override
-  int maxEncryptedSize(Uint8List inp) =>
-      inp.length +
-      sodium.crypto.secretBox.nonceBytes +
-      sodium.crypto.secretBox.macBytes;
+  int maxEncryptedSize(Uint8List inp) => _cipherLength(inp.length);
 
   @override
   int encrypt(
@@ -40,6 +37,9 @@ class SodiumHiveCipher implements HiveCipher {
     Uint8List out,
     int outOff,
   ) {
+    _validateInp(inp, inpOff, inpLength);
+    _validateOut(out, outOff, _cipherLength(inpLength));
+
     final nonce = sodium.randombytes.buf(sodium.crypto.secretBox.nonceBytes);
     out.setAll(outOff, nonce);
 
@@ -61,10 +61,14 @@ class SodiumHiveCipher implements HiveCipher {
     Uint8List out,
     int outOff,
   ) {
+    _validateInp(inp, inpOff, inpLength);
+    _validateCipher(inpLength);
+    _validateOut(out, outOff, _plainLength(inpLength));
+
     final nonce = Uint8List.sublistView(
       inp,
       inpOff,
-      sodium.crypto.secretBox.nonceBytes,
+      inpOff + sodium.crypto.secretBox.nonceBytes,
     );
     final cipher = Uint8List.sublistView(
       inp,
@@ -79,5 +83,50 @@ class SodiumHiveCipher implements HiveCipher {
     );
     out.setAll(outOff, plain);
     return plain.length;
+  }
+
+  int _cipherLength(int inpLength) =>
+      inpLength +
+      sodium.crypto.secretBox.nonceBytes +
+      sodium.crypto.secretBox.macBytes;
+
+  int _plainLength(int inpLength) =>
+      inpLength -
+      sodium.crypto.secretBox.nonceBytes -
+      sodium.crypto.secretBox.macBytes;
+
+  void _validateInp(Uint8List inp, int inpOff, int inpLength) {
+    if (inp.length < inpOff + inpLength) {
+      throw ArgumentError.value(
+        inp.length,
+        'inp',
+        'inp is to short for specified inpOff and inpLength. '
+            'Should be at least ${inpOff + inpLength} but was',
+      );
+    }
+  }
+
+  void _validateOut(Uint8List out, int outOff, int outLength) {
+    if (out.length < outOff + outLength) {
+      throw ArgumentError.value(
+        out.length,
+        'out',
+        'out is to short for specified outOff and inpLength. '
+            'Should be at least ${outOff + outLength} but was',
+      );
+    }
+  }
+
+  void _validateCipher(int inpLength) {
+    final minBytes =
+        sodium.crypto.secretBox.nonceBytes + sodium.crypto.secretBox.macBytes;
+    if (inpLength < minBytes) {
+      throw ArgumentError.value(
+        inpLength,
+        'inpLength',
+        'inp is to short for to contain valid cipher data. '
+            'Should be at least $minBytes but was',
+      );
+    }
   }
 }
