@@ -9,11 +9,13 @@ import '../core/store/store_event.dart';
 import 'box_extensions.dart';
 import 'hive_store.dart';
 
+typedef CloseFn = void Function();
+
 class HiveOfflineStore<T extends Object>
     implements HiveStore<T>, OfflineStore<T> {
   final Box<T> rawBox;
   final Uuid uuid;
-  final void Function() onClosed;
+  final CloseFn onClosed;
 
   HiveOfflineStore({
     required this.rawBox,
