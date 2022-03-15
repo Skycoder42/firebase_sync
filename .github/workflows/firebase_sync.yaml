@@ -1,7 +1,6 @@
-name: Continous Integration for package firebase_sync
+name: Continuos Integration
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - "*"
@@ -10,45 +9,13 @@ on:
       - "*"
 
 jobs:
-  test:
-    strategy:
-      fail-fast: false
-      matrix:
-        platform:
-          - linux
-          - windows
-          - macos
-          - web
-
-        include:
-          - platform: linux
-            os: ubuntu-latest
-            system: vm
-          - platform: windows
-            os: windows-latest
-            system: vm
-          - platform: macos
-            os: macos-latest
-            system: vm
-          - platform: web
-            os: ubuntu-latest
-            system: js
-
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: dart-lang/setup-dart@v1
-      - uses: actions/checkout@v2
-      - run: dart pub get
-      - run: dart run build_runner build
-      - run: dart analyze --fatal-infos
-      - run: dart format -onone --set-exit-if-changed .
-      - run: dart run dart_test_tools:test -munit -c -p${{ matrix.system }}
-      - run: dart run dart_test_tools:test -mintegration -p${{ matrix.system }}
-      - uses: VeryGoodOpenSource/very_good_coverage@v1.1.1
-        with:
-          path: coverage/lcov.info
-          min_coverage: 95
-          exclude: >-
-            **/*.freezed.dart
-            **/*.g.dart
-      - run: dart run dart_test_tools:publish --dry-run
+  ci:
+    name: CI
+    uses: Skycoder42/dart_test_tools/.github/workflows/dart.yml@main
+    with:
+      buildRunner: true
+      publishExclude: '["lib/src/.gitignore"]'
+      unitTestPaths: test/unit
+      coverageExclude: >-
+        "**/*.g.dart"
+        "**/*.freezed.dart"
